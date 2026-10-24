@@ -1718,6 +1718,54 @@ function ropePanel(r,sx,sy){let el=$('ropeP');if(!el){el=document.createElement(
   el.hidden=false;const W_=el.offsetWidth||230,H_=el.offsetHeight||120;el.style.left=clamp(sx-W_/2,8,innerWidth-W_-8)+'px';el.style.top=clamp(sy-H_-18,8,innerHeight-H_-8)+'px';
   const inp=el.querySelector('input'),out=el.querySelector('output');inp.oninput=()=>{if(!ROPES.includes(r)){el.hidden=true;return;}r.L=Math.max(3,3+(L0-3)*(1-(+inp.value)/100));out.textContent=txt();};
   el.querySelector('[data-k=un]').onclick=()=>{const i=ROPES.indexOf(r);if(i>=0)ROPES.splice(i,1);emitLog('Rope untied','info');el.hidden=true;ROPESEL=null;};el.querySelector('[data-k=ok]').onclick=()=>{el.hidden=true;ROPESEL=null;};}
+
+// NPC weapon pickup: nearby NPCs can automatically grab a spawned physical gun with a hand.
+function npcGunPickupStep(h){
+  if(!BODIES.length||!PROPS.length)return;
+  // Keep guns attached to the NPC's hand while they are being carried.
+  for(const pr of PROPS){
+    if(!pr.aiHolder)continue;
+    const b=pr.aiHolder, st=b.st;
+    const hand=st&&st.SEG&&(st.SEG[pr.aiHand]||st.SEG.nearHand||st.SEG.farHand);
+    const hp=hand&&st.P&&st.P[hand.b];
+    if(!hp||!st.V||st.V.dead||st.V.ko>20){
+      pr.aiHolder=null;pr.aiHand=null;pr.held=false;pr.aiNoCollide=false;
+      pr.vx=(pr.x-pr.px)*0.5;pr.vy=(pr.y-pr.py)*0.5;
+      continue;
+    }
+    // NPC-carried guns are kinematic: ignore all prop/body collisions while attached,
+    // align the grip near the hand, and automatically point the barrel where the NPC faces.
+    const face=(st.FACE===-1)?-1:1;
+    pr.ang=face===-1?Math.PI:0;
+    // Place the grip at the wrist, with the barrel extending forward from the hand.
+    const gripX=-face*(pr.weaponKind==='pistol'?5:12);
+    const gripY=-2;
+    pr.x=hp.x+gripX;pr.y=hp.y+gripY;
+    pr.px=pr.x;pr.py=pr.y;pr.vx=0;pr.vy=0;pr.av=0;pr.held=true;pr.aiNoCollide=true;
+  }
+  // An unheld gun close to a hand can be picked up automatically.
+  for(const pr of PROPS){
+    if(!pr.weaponKind||pr.aiHolder||pr.held||pr.dead||(grab&&grab.prop===pr))continue;
+    let best=null,bd=82;
+    for(const b of BODIES){
+      const st=b.st;if(!st||!st.P||!st.SEG||!st.V||st.V.dead||st.V.ko>20)continue;
+      for(const key of ['nearHand','farHand']){
+        const hand=st.SEG[key];if(!hand)continue;
+        const hp=st.P[hand.b];if(!hp||hp.gone)continue;
+        const d=Math.hypot(hp.x-pr.x,hp.y-pr.y);
+        if(d<bd){bd=d;best={b,key};}
+      }
+    }
+    if(best){
+      pr.aiHolder=best.b;pr.aiHand=best.key;pr.held=true;pr.aiNoCollide=true;
+      // Start from the NPC's facing direction immediately to avoid a collision/rotation snap.
+      pr.ang=((best.b.st&&best.b.st.FACE)===-1)?Math.PI:0;
+      pr.vx=0;pr.vy=0;pr.av=0;
+      if(typeof emitLog==='function')emitLog((best.b.name||'NPC')+' picked up a '+pr.weaponKind,'good');
+    }
+  }
+}
+
 function physStep(h){
   const ratio=hPrev?h/hPrev:1;hPrev=h;
   // every person's body (sim/bodies), then the world they share
@@ -1732,6 +1780,7 @@ function physStep(h){
       A.px=lerp(A.px,A.x,0.06*Math.min(1,ka));A.py=lerp(A.py,A.y,0.06*Math.min(1,ka));B.px=lerp(B.px,B.x,0.06*Math.min(1,kb));B.py=lerp(B.py,B.y,0.06*Math.min(1,kb));
     });bodyContacts();
   }
+  npcGunPickupStep(h);
   objStep(h);
   propStep(h);propGrabStep(h);if(PROPS.length)poolForces(h);
   bulletStep(h);arrowStep(h);
@@ -1969,7 +2018,10 @@ const PROPDEF={
   slab:{name:'Long table',m:60,e:0.05,mu:0.7,build(){const C=[];for(let x=-96;x<=96.01;x+=3.6)C.push([x,-78,2.2]);for(const sx of [-84,84])for(let y=-74;y<=-1.5;y+=3.4)C.push([sx,y,1.9]);return C;}},
   // above-ground pool / chemical tank: 180 × 56 cm, 1 m front to back, 4 cm polyethylene walls on a steel frame · ≈ 890 L inside · 60 kg empty
   pool:{name:'Pool',m:60,e:0.03,mu:0.9,build(){const C=[];for(let x=-90;x<=90.01;x+=3.2)C.push([x,-2.1,2.1]);for(const sx of [-88,88])for(let y=-56;y<=-4;y+=3.2)C.push([sx,y,2]);return C;}},
-  beaker:{name:'Beaker',m:0.12,e:0.15,mu:0.5,build(k=1){return[[-3.1,-1.3,1.25],[3.1,-1.3,1.25],[0,-1.3,1.3],[-3.3,-4.6,0.9],[3.3,-4.6,0.9],[-3.4,-7.8,0.75],[3.4,-7.8,0.75]].map(c=>[c[0]*k,c[1]*k,c[2]*k]);}},
+  beaker:{name:'Beaker',m:0.12,e:0.15,mu:0.5,build(k=1){return[[-3.1,-1.3,1.25],[3.1,-1.3,1.25],[0,-1.3,1.3],[-3.3,-4.6,0.9],[3.3,-4.6,0.9],[-3.4,-7.8,0.75]].map(c=>[c[0]*k,c[1]*k,c[2]*k]);}},
+  gunPistol:{name:'Pistol',m:1.1,e:0.12,mu:0.45,build(){return[[-12,-2,2.2],[-5,-2,2.2],[2,-2,2.2],[10,-2,1.7],[0,3,1.8],[-1,8,1.6],[3,8,1.6],[6,3,1.5]];}},
+  gunRifle:{name:'Rifle',m:3.4,e:0.1,mu:0.45,build(){return[[-24,-2,2.1],[-16,-2,2.1],[-8,-2,2.1],[0,-2,2.1],[8,-2,2],[16,-2,1.8],[25,-2,1.5],[-12,3,1.6],[-8,8,1.5],[-4,8,1.5],[1,3,1.5]];}},
+  gunShotgun:{name:'Shotgun',m:3.1,e:0.1,mu:0.45,build(){return[[-24,-2,2.1],[-16,-2,2.1],[-8,-2,2.1],[0,-2,2.1],[8,-2,2],[17,-2,1.7],[25,-2,1.4],[-8,3,1.6],[-4,8,1.5],[0,8,1.5]];}},
 };
 function spawnProp(type,x,y,vx,vy,o){
   const d=PROPDEF[type],sc=(o&&o.sc)||1,mass=type==='beaker'?d.m*Math.pow(sc,2.6):d.m;let C=d.build(sc);
@@ -1979,6 +2031,9 @@ function spawnProp(type,x,y,vx,vy,o){
   let R=0;for(const c of C)R=Math.max(R,Math.hypot(c[0],c[1])+c[2]);
   const pr={type,x:x+cx,y:Math.min(y,0)+cy,ang:0,vx:vx||0,vy:vy||0,av:0,m:mass,im:1/mass,I,iI:1/I,C,R,e:d.e,mu:d.mu,ox:cx,oy:cy,hp:100,cd:0,born:T};
   if(type==='beaker'){pr.sc=sc;pr.cap=(o&&o.cap)||250;pr.mix=newMix();}
+  if(type==='gunPistol')pr.weaponKind='pistol';
+  if(type==='gunRifle')pr.weaponKind='rifle';
+  if(type==='gunShotgun')pr.weaponKind='shotgun';
   if(type==='gurney')pr.brake=true;
   if(type==='pool'){pr.upright=true;pr.cap=POOLD.cap;pr.mix=newMix();pr.wv=new Float32Array(POOLN);pr.wvv=new Float32Array(POOLN);pr.pvx=0;}   // starts empty
   // keep it out of the floor on spawn
@@ -2036,7 +2091,7 @@ function propStep(h){
     // the body
     const bx0=pr.x;
     // climbing over a piece of story cover: hands and legs go over it, so the body does not collide with it meanwhile
-    forBodies(()=>{if(!(ACT.on&&((ACT.vault&&ACT.vault.pr===pr)||(ACT.passT>0&&ACT.passPr===pr))))for(const s of segs){if(s.gone)continue;const A=P[s.a],B=P[s.b];
+    forBodies(()=>{if(!pr.aiNoCollide && !(ACT.on&&((ACT.vault&&ACT.vault.pr===pr)||(ACT.passT>0&&ACT.passPr===pr))))for(const s of segs){if(s.gone)continue;const A=P[s.a],B=P[s.b];
       const mx=(A.x+B.x)/2,my=(A.y+B.y)/2;if(Math.hypot(mx-pr.x,my-pr.y)>pr.R+s.len/2+12)continue;
       for(const c of pr.C){const p=propPt(pr,c);const r=dps(p.x,p.y,A.x,A.y,B.x,B.y);const RR=rad(s,r.t)+c[2];
         // resting on top (within 0.45 cm, the same margin as the floor): remember it for static friction below
@@ -8628,10 +8683,26 @@ function drawSaber(){if(tool!=='saber'||!drag||drag.probe||!pointerW||view==='si
 /* ===== render/world.js ===== */
 // Trauma Lab — © 2026 Abynotic Studios. All rights reserved.
 // Proprietary and confidential. Copying, redistribution or reuse without written permission is prohibited.
+function drawGrabbableGun(c,pr){
+  const rifle=pr.weaponKind==='rifle',shotgun=pr.weaponKind==='shotgun';
+  c.lineCap='round';c.lineJoin='round';
+  // Receiver and barrel
+  c.fillStyle='#252b31';c.strokeStyle='#111820';c.lineWidth=1.4;
+  c.beginPath();c.roundRect(rifle||shotgun?-22:-11,-4,rifle||shotgun?43:24,5,1.5);c.fill();c.stroke();
+  c.fillStyle=shotgun?'#7a5535':(rifle?'#394c3d':'#39424b');
+  c.fillRect(rifle||shotgun?-13:-5,-3,rifle||shotgun?15:11,3);
+  c.fillStyle='#aab4bd';c.fillRect(rifle||shotgun?19:10,-3,rifle||shotgun?12:8,1.5);
+  // Grip, magazine and trigger guard
+  c.fillStyle='#20252a';c.beginPath();c.moveTo(-2,0);c.lineTo(5,0);c.lineTo(4,10);c.lineTo(0,11);c.closePath();c.fill();c.stroke();
+  if(rifle||shotgun){c.fillStyle='#22282e';c.fillRect(-20,-3,7,3);c.fillRect(-24,-3,5,2);}
+  else {c.fillStyle='#22282e';c.fillRect(1,2,4,4);}
+  c.strokeStyle='#aab4bd';c.lineWidth=0.8;c.beginPath();c.moveTo(-1,1);c.lineTo(4,1);c.lineTo(3,4);c.stroke();
+  c.fillStyle='#e9c46a';c.fillRect(-3,-5,5,1);
+}
 function drawProps(){
   if(!PROPS.length)return;const c=ctx;
   for(const pr of PROPS){c.save();c.translate(pr.x,pr.y);c.rotate(pr.ang);c.translate(-pr.ox,-pr.oy);
-    if(pr.type==='crate')drawCrate(c,pr);else if(pr.type==='lowbox')drawLowbox(c,pr);else if(pr.type==='cabinet')drawCabinet(c,pr);else if(pr.type==='table')drawTable(c);else if(pr.type==='pool')drawPool(c,pr);else if(pr.type==='gurney'){drawGurney(c);drawBrakes(c,pr);}else if(pr.type==='stretcher')drawStretcher(c);else if(pr.type==='slab')drawSlab(c);else if(pr.type==='chair')drawChair(c);else{c.scale(pr.sc||1,pr.sc||1);drawBeaker(c,pr);}
+    if(pr.type==='crate')drawCrate(c,pr);else if(pr.type==='lowbox')drawLowbox(c,pr);else if(pr.type==='cabinet')drawCabinet(c,pr);else if(pr.type==='table')drawTable(c);else if(pr.type==='pool')drawPool(c,pr);else if(pr.type==='gurney'){drawGurney(c);drawBrakes(c,pr);}else if(pr.type==='stretcher')drawStretcher(c);else if(pr.type==='slab')drawSlab(c);else if(pr.type==='chair')drawChair(c);else if(pr.weaponKind){drawGrabbableGun(c,pr);}else{c.scale(pr.sc||1,pr.sc||1);drawBeaker(c,pr);}
     c.restore();}
   if(grab&&grab.prop&&pointerW){const pr=grab.prop,ca=Math.cos(pr.ang),sa=Math.sin(pr.ang);c.strokeStyle='rgba(233,196,106,.7)';c.lineWidth=0.4;c.beginPath();c.moveTo(pr.x+grab.lx*ca-grab.ly*sa,pr.y+grab.lx*sa+grab.ly*ca);c.lineTo(pointerW.x,pointerW.y);c.stroke();}
 }
@@ -10617,6 +10688,7 @@ function openHome(){
     <div class="hold" role="note"><b>Free version</b><span>You're playing <i>${PUBLIC_VER()}</i> for free. <i>Story mode</i> and the newest builds go to Discord playtesters and supporters first.</span><div class="hbtns"><a class="hdisc hdisc-s" href="${DISCORD_URL}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>Join the Discord playtest</a><button class="hdisc hdisc-s hsupp" id="hSupp" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-9.6A4 4 0 0 1 12 8a4 4 0 0 1 7 2.4C19 15.6 12 20 12 20z"/></svg>Supporter build</button></div></div>
     <div class="hmodes">
       <button class="hmode" id="hSand"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16M6 20V9l6-5 6 5v11M9 20v-6h6v6"/></svg><b>Sandbox</b><em>Free play · every weapon, tool, chemical and power</em></button>
+      <button class="hmode" id="hMultiplayer"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M2.5 19c0-3 2.2-5 5.5-5s5.5 2 5.5 5M14 14c3.8-.8 7 1.3 7 4.5"/></svg><b>Multiplayer</b><em>Online room · create or join with a 4-letter code</em></button>
       <button class="hmode hcm" id="hAlive"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10zM6 12h3l1.5-3 2 6 1.5-3H18"/></svg><b>Keep him alive</b><em>${CASES.length} real emergencies · medicine only${won?` · ${won}/${CASES.length} stabilised`:''}</em></button>
       <button class="hmode hstory" id="hStory"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 4a2 2 0 1 1-4 0 2 2 0 0 1 4 0zM10 8l-3 5h3l-1 7M11 8l3 4 3 1M10 13l3 3v4"/></svg><b>Story mode</b><em>Play now · escape the lab</em></button>
     </div>
@@ -10632,6 +10704,7 @@ function openHome(){
    d.querySelectorAll('.hshot').forEach(f=>{const open=()=>{const h=NEWSHOTS[+f.dataset.i];z.innerHTML=`<div><img src="${h.src}" alt=""><p><b style="color:var(--accent)">${h.t}</b> · ${h.d}</p></div>`;z.hidden=false;};f.onclick=open;f.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}};});}
   d.querySelectorAll('.hsurg button').forEach(b=>b.onclick=()=>{OPT.surg=b.dataset.v;saveOpt();d.querySelectorAll('.hsurg button').forEach(q=>q.setAttribute('aria-pressed',q===b));$('hSurgD').textContent=OPT.surg==='complex'?'You cut, clamp, sew and inject yourself':'Tap and it happens';});
   $('hSand').onclick=()=>{closeHome();if(OPT.scene!=='lab'||V.dead){setScene(OPT.scene||'lab',true);}log('Sandbox · pick a category below','info');openCoach();};
+  $('hMultiplayer').onclick=()=>{const mp=$('tl-multiplayer-panel');if(mp){mp.hidden=false;$('tl-mp-backdrop').hidden=false;const input=$('tl-mp-code');if(input)input.focus();}};
   $('hAlive').onclick=()=>{closeHome();openChallenge();};
   $('hStory').onclick=()=>storyStart();
   [$('hSupp'),$('hSupp2')].forEach(b=>b&&(b.onclick=()=>openSupporter()));
@@ -11142,5 +11215,115 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
   window.__lab.getNPCCount=()=>npcSpawned.length;
 })();
 
+
+// ===== Melon-style physical gun spawner =====
+(function installGrabbableGunSpawner(){
+  const css=document.createElement('style');
+  css.textContent=`
+    #gunSpawnBtn{position:fixed;right:14px;bottom:145px;z-index:31;padding:10px 14px;border:1px solid #8ab4f8;border-radius:10px;background:#17202b;color:#f4f7fb;font:700 12px system-ui;letter-spacing:.04em;box-shadow:0 6px 20px #0005;cursor:pointer}
+    #gunSpawnPanel{position:fixed;right:14px;bottom:190px;z-index:31;width:min(290px,calc(100vw - 28px));padding:14px;border:1px solid #64748b;border-radius:12px;background:#111923;color:#f4f7fb;box-shadow:0 12px 32px #0008;font:13px system-ui}
+    #gunSpawnPanel[hidden]{display:none}
+    #gunSpawnPanel h3{margin:0 0 6px;font-size:15px}
+    #gunSpawnPanel p{margin:0 0 10px;color:#c6d0dd;line-height:1.4}
+    #gunSpawnPanel .gunRow{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+    #gunSpawnPanel button{border:1px solid #526274;border-radius:8px;padding:8px 9px;background:#243142;color:#fff;font-weight:650;cursor:pointer}
+    #gunSpawnPanel button:hover{background:#34485f}
+    #gunSpawnPanel .gunFire{background:#805a1c;border-color:#e9c46a}
+    #gunSpawnPanel .gunStatus{font-size:11px;color:#aebccc;margin-top:8px}
+  `;
+  document.head.appendChild(css);
+  const btn=document.createElement('button');
+  btn.id='gunSpawnBtn';btn.type='button';btn.textContent='＋ GUN SPAWNER';
+  const panel=document.createElement('section');
+  panel.id='gunSpawnPanel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Gun spawner');
+  panel.innerHTML=`<h3>Physical Guns</h3>
+    <p>Spawn a gun, select the normal Grab tool, then drag the gun to pick it up and move it. Hold a gun and press <b>F</b> to fire or <b>R</b> to flip it 180°.</p>
+    <div class="gunRow"><button data-gun="gunPistol">Pistol</button><button data-gun="gunRifle">Rifle</button><button data-gun="gunShotgun">Shotgun</button></div>
+    <div class="gunRow"><button class="gunFire" id="fireHeldGun">Fire Held Gun</button><button id="flipHeldGun">Flip 180°</button><button id="closeGunPanel">Close</button></div>
+    <div class="gunStatus" id="gunSpawnStatus">Guns use the game's existing projectile and damage simulation.</div>`;
+  document.body.append(btn,panel);
+
+  function heldGun(){
+    return (typeof grab!=='undefined'&&grab&&grab.prop&&grab.prop.weaponKind)?grab.prop:null;
+  }
+  function say(t){const e=panel.querySelector('#gunSpawnStatus');if(e)e.textContent=t;}
+  function spawnGun(type){
+    try{
+      const mainX=(typeof P!=='undefined'&&typeof SEG!=='undefined'&&P[SEG.chest.a])?P[SEG.chest.a].x:0;
+      const x=clamp(mainX+95,-ROOM+45,ROOM-45);
+      const pr=spawnProp(type,x,-32,0,0,{});
+      if(pr){say(pr.weaponKind.toUpperCase()+' spawned · select Grab and drag it to pick it up.');if(typeof emitLog==='function')emitLog(pr.weaponKind+' spawned · use Grab to pick it up','good');}
+      else say('No room there — move the character or try spawning again.');
+    }catch(e){say('Could not spawn a gun in this scene.');}
+  }
+  function fireHeld(){
+    const pr=heldGun();
+    if(!pr){say('Grab a spawned gun first.');return;}
+    const a=pr.ang||0;
+    const muzzleX=pr.weaponKind==='pistol'?13:31, muzzleY=-2;
+    const ca=Math.cos(a),sa=Math.sin(a);
+    const x=pr.x+(muzzleX-pr.ox)*ca-(muzzleY-pr.oy)*sa;
+    const y=pr.y+(muzzleX-pr.ox)*sa+(muzzleY-pr.oy)*ca;
+    try{fire(pr.weaponKind,x,y,Math.cos(a),Math.sin(a));say(pr.weaponKind.toUpperCase()+' fired.');}
+    catch(e){say('Could not fire this gun right now.');}
+  }
+  btn.addEventListener('click',()=>{panel.hidden=!panel.hidden;});
+  panel.querySelectorAll('[data-gun]').forEach(b=>b.addEventListener('click',()=>spawnGun(b.dataset.gun)));
+  panel.querySelector('#fireHeldGun').addEventListener('click',fireHeld);
+  panel.querySelector('#flipHeldGun').addEventListener('click',()=>{
+    const pr=heldGun();if(!pr){say('Grab a spawned gun first.');return;}
+    pr.ang+=Math.PI;say('Gun flipped around.');
+  });
+  panel.querySelector('#closeGunPanel').addEventListener('click',()=>{panel.hidden=true;});
+  window.addEventListener('keydown',e=>{
+    if(e.repeat)return;
+    if(e.key==='f'||e.key==='F'){
+      if(heldGun()){e.preventDefault();fireHeld();}
+    }else if(e.key==='r'||e.key==='R'){
+      const pr=heldGun();
+      if(pr){
+        e.preventDefault();
+        pr.ang=(pr.ang||0)+Math.PI;
+        say('Gun flipped 180° (R).');
+      }
+    }
+  });
+  if(typeof window.__lab==='object')window.__lab.spawnGun=spawnGun;
+})();
+
+</script>
+
+
+
+<script src="https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js"></script>
+<style>
+#tl-multiplayer-panel{position:fixed;z-index:100001;left:50%;top:50%;transform:translate(-50%,-50%);width:min(380px,calc(100vw - 32px));box-sizing:border-box;background:#161c23f7;color:#eef4fa;border:1px solid #586675;border-radius:14px;padding:16px;font:13px/1.4 system-ui,sans-serif;box-shadow:0 18px 60px #000b}#tl-multiplayer-panel[hidden]{display:none!important}#tl-mp-head{display:flex;align-items:center;justify-content:space-between;gap:10px}#tl-mp-close{font-size:18px;padding:4px 10px!important}#tl-mp-backdrop{position:fixed;inset:0;z-index:100000;background:#05080dcc}#tl-mp-backdrop[hidden]{display:none!important}
+#tl-multiplayer-panel h3{margin:0 0 8px;font-size:16px}#tl-multiplayer-panel .tl-row{display:flex;gap:6px;margin:6px 0}#tl-multiplayer-panel input{min-width:0;flex:1;width:100%;padding:8px;border-radius:6px;border:1px solid #667482;background:#0e1319;color:white;text-transform:uppercase}#tl-multiplayer-panel button{padding:8px 10px;border-radius:6px;border:1px solid #687888;background:#293746;color:white;cursor:pointer}#tl-multiplayer-panel button:hover{background:#3a5064}#tl-mp-status{color:#b8d8f4;margin-top:7px}#tl-mp-note{color:#c3ccd5;font-size:11px;margin-top:7px}#tl-mp-remote{position:fixed;z-index:99998;pointer-events:none;display:none;color:#fff;font:12px system-ui;background:#087e8b;padding:3px 6px;border-radius:5px;transform:translate(8px,8px);box-shadow:0 1px 4px #0008}
+</style>
+<div id="tl-mp-backdrop" hidden></div>
+<div id="tl-multiplayer-panel" hidden>
+ <div id="tl-mp-head"><h3>Multiplayer</h3><button id="tl-mp-close" type="button" aria-label="Close multiplayer">×</button></div>
+ <div class="tl-row"><button id="tl-mp-create">Create room</button><input id="tl-mp-code" maxlength="4" placeholder="CODE" aria-label="Four-letter room code"><button id="tl-mp-join">Join</button></div>
+ <div class="tl-row"><button id="tl-mp-copy">Copy code</button><button id="tl-mp-leave">Disconnect</button></div>
+ <div id="tl-mp-status" role="status">Not connected</div>
+ <div id="tl-mp-note">Prototype: connects two browsers and shows the other player's pointer. Shared character physics and actions are not synchronized yet.</div>
+</div><div id="tl-mp-remote">Friend</div>
+<script>
+(()=>{
+ const $=id=>document.getElementById(id), codeEl=$('tl-mp-code'), status=$('tl-mp-status'), remote=$('tl-mp-remote');
+ let peer=null, conn=null, isHost=false, lastSend=0;
+ const alphabet='abcdefghjkmnpqrstuvwxyz';
+ function say(s){status.textContent=s;}
+ function hidePanel(){ $('tl-multiplayer-panel').hidden=true; $('tl-mp-backdrop').hidden=true; }
+ $('tl-mp-close').addEventListener('click',hidePanel);$('tl-mp-backdrop').addEventListener('click',hidePanel);
+ function clean(){try{if(conn)conn.close();}catch(e){}try{if(peer)peer.destroy();}catch(e){}conn=null;peer=null;remote.style.display='none';}
+ function attach(c){conn=c;c.on('open',()=>{say('Connected to room '+codeEl.value.toUpperCase());$('tl-mp-copy').disabled=false;});c.on('data',d=>{if(!d||d.type!=='pointer')return;remote.style.left=(Math.max(0,Math.min(1,d.x))*Math.max(0,innerWidth-60))+'px';remote.style.top=(Math.max(0,Math.min(1,d.y))*Math.max(0,innerHeight-30))+'px';remote.style.display='block';});c.on('close',()=>{conn=null;remote.style.display='none';say('Friend disconnected');});c.on('error',e=>say('Connection error: '+(e.type||'try again')));}
+ function startHost(){if(!window.Peer){say('Network library did not load. Check internet and reload.');return;}clean();isHost=true;let id='';for(let i=0;i<4;i++)id+=alphabet[Math.floor(Math.random()*alphabet.length)];say('Creating room…');peer=new Peer(id,{debug:0});peer.on('open',got=>{codeEl.value=got.toUpperCase();say('Room '+got.toUpperCase()+' ready — send the code to your friend');});peer.on('connection',c=>{if(conn){c.close();return;}attach(c);});peer.on('error',e=>{say(e.type==='unavailable-id'?'Code taken; click Create room again.':'Could not create room: '+e.type);});}
+ function join(){if(!window.Peer){say('Network library did not load. Check internet and reload.');return;}const id=codeEl.value.trim().toUpperCase();if(!/^[A-Z]{4}$/.test(id)){say('Enter the four-letter room code.');return;}clean();isHost=false;say('Joining '+id+'…');peer=new Peer(undefined,{debug:0});peer.on('open',()=>{conn=peer.connect(id.toLowerCase(),{reliable:true});attach(conn);});peer.on('error',e=>say('Could not join: '+e.type+' — check the code and try again.'));}
+ $('tl-mp-create').addEventListener('click',startHost);$('tl-mp-join').addEventListener('click',join);$('tl-mp-leave').addEventListener('click',()=>{clean();say('Disconnected');});
+ $('tl-mp-copy').addEventListener('click',async()=>{const code=codeEl.value.trim();if(!code){say('Create a room first.');return;}try{await navigator.clipboard.writeText(code);say('Room code copied: '+code);}catch(e){codeEl.select();say('Select and copy the room code manually.');}});
+ window.addEventListener('pointermove',e=>{const now=performance.now();if(now-lastSend<50||!conn||!conn.open)return;lastSend=now;try{conn.send({type:'pointer',x:e.clientX/Math.max(1,innerWidth),y:e.clientY/Math.max(1,innerHeight)});}catch(e){}});
+ window.addEventListener('beforeunload',clean);
+})();
 </script>
 
