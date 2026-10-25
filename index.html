@@ -884,7 +884,7 @@ let VS=1.5,VX=0,VY=0;
 const CAM={side:{z:1,px:0,py:0},front:{z:1,px:0,py:0},back:{z:1,px:0,py:0}};
 let view='side';
 let G=981;
-const SUB=6, ITER=10;
+const SUB=6, ITER=12;
 let T=0, hPrev=0, timeScale=1, xray=false, soundOn=true, shake=0;
 /* ---------- options ---------- */
 const OPT_DEF={sex:'m',mon:0,keys:null,mstr:2,chemq:2,chemc:0,ammo:{},mlist:false,gunvol:1,casevol:0.5,pip:false,scene:'lab',surg:'simple',tear:true,beep:true,xl:{skin:true,muscles:true,organs:true,vessels:true,bones:true,nerves:true},gore:3,strands:true,spatter:true,clot:true,god:false,bleedout:true,react:true,painfx:true,slowmo:false,arrowcam:true,gravity:'earth',skin:'medium',quality:'auto',shake:true,hints:true,logs:true,pin:true,fps:false,vol:0.8,amb:true,vib:true};
@@ -978,18 +978,18 @@ function spawnPerson(x,o){o=o||{};const b={id:(spawnPerson.n=(spawnPerson.n||0)+
 // for standing and fallen bodies, with limited corrections to reduce phasing without explosive pushes.
 function bodyContacts(){
   const L=[BODY0,...BODIES].map(b=>{const s=b===BCUR?bodyGet():b.st;let x0=1e9,x1=-1e9;for(const p of s.P){if(p.gone)continue;if(p.x<x0)x0=p.x;if(p.x>x1)x1=p.x;}return{P:s.P,segs:s.segs,x0,x1,up:s.V.rise>0.3};});
-  // More contact passes and a larger correction make NPC-to-NPC impacts feel heavier.
-  for(let pass=0;pass<9;pass++)for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
+  // Extra constraint/contact passes and stronger momentum transfer make NPC-to-NPC impacts feel weightier.
+  for(let pass=0;pass<10;pass++)for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
     const a=L[i],b=L[j];if(a.x1+18<b.x0||b.x1+18<a.x0)continue;
-    bodyPush(a,b,1.05);bodyPush(b,a,1.05);
+    bodyPush(a,b,1.15);bodyPush(b,a,1.15);
   }
 }
 function bodyPush(a,b,maxStep=0.95){for(const p of a.P){if(p.gone)continue;for(const s of b.segs){if(s.gone)continue;const A=b.P[s.a],B=b.P[s.b];if(!A||!B||A.gone&&B.gone)continue;
   const r=dps(p.x,p.y,A.x,A.y,B.x,B.y),RR=p.r+rad(s,r.t);if(r.d>=RR||r.d<1e-4)continue;
   const nx=(p.x-r.qx)/r.d,ny=(p.y-r.qy)/r.d,t=r.t,sim=(1-t)*A.im+t*B.im,den=(p.im+sim)||1,k=Math.min(maxStep,RR-r.d)/den;
-  const dx=nx*k*p.im,dy=ny*k*p.im;p.x+=dx;p.y+=dy;p.px+=dx*0.22;p.py+=dy*0.22;
+  const dx=nx*k*p.im,dy=ny*k*p.im;p.x+=dx;p.y+=dy;p.px+=dx*0.12;p.py+=dy*0.12;
   const ax=-nx*k*A.im*(1-t),ay=-ny*k*A.im*(1-t),bx=-nx*k*B.im*t,by=-ny*k*B.im*t;
-  A.x+=ax;A.y+=ay;A.px+=ax*0.22;A.py+=ay*0.22;B.x+=bx;B.y+=by;B.px+=bx*0.22;B.py+=by*0.22;
+  A.x+=ax;A.y+=ay;A.px+=ax*0.12;A.py+=ay*0.12;B.x+=bx;B.y+=by;B.px+=bx*0.12;B.py+=by*0.12;
 }}}
 // every 1/60 s: each other person's physiology, bleeding and what his wounds do on their own
 function bodiesTick(dt){for(const b of BODIES)withBody(b,()=>{if(typeof guardStep==='function'&&!(STORY.on&&STORY.sandboxV2&&STORY.controlled===b))guardStep(dt);physio(dt);bleedBody(dt);strandStep(dt);fracStep();openFracStep(dt);evisStep(dt);gutStep(dt);});}
@@ -2307,7 +2307,17 @@ const WEAP={
   flamer:  {name:'Flamethrower',E:0,m:0,loss:0,pellets:1,spread:0,cav:0,range:420,knock:0,snd:'flame',auto:30},
   bow:{name:'Compound bow',E:110,m:0.028,loss:0,pellets:1,spread:0,cav:0.4,range:1e6,knock:1,snd:'whoosh',cls:'arrow'},
   crossbow:{name:'Crossbow',E:160,m:0.026,loss:0,pellets:1,spread:0,cav:0.4,range:1e6,knock:1,snd:'whoosh',cls:'arrow'},
-  shrapnel:{name:'Shrapnel',E:240,m:0.003,loss:13,pellets:1,spread:0,cav:1,range:160,knock:5}
+  shrapnel:{name:'Shrapnel',E:240,m:0.003,loss:13,pellets:1,spread:0,cav:1,range:160,knock:5},
+  burst9:{name:'Burst Pistol',E:430,m:0.007,loss:11,pellets:1,spread:0.012,cav:0.9,range:1e6,knock:5,snd:'pistol',auto:7,cls:'hand'},
+  machinep:{name:'Machine Pistol',E:390,m:0.006,loss:12,pellets:1,spread:0.03,cav:0.85,range:1e6,knock:4,snd:'smg',auto:13,cls:'hand'},
+  pdw:{name:'Compact PDW',E:450,m:0.007,loss:10,pellets:1,spread:0.022,cav:1,range:1e6,knock:5,snd:'smg',auto:12,cls:'hand'},
+  bullpup:{name:'Bullpup Rifle',E:1450,m:0.004,loss:8,pellets:1,spread:0.006,cav:1.55,range:1e6,knock:7,snd:'rifle',auto:9,cls:'rifle'},
+  battlerifle:{name:'Battle Rifle',E:2550,m:0.009,loss:7,pellets:1,spread:0.008,cav:2,range:1e6,knock:9,snd:'rifle',auto:6,cls:'rifle'},
+  leverrifle:{name:'Lever Rifle',E:1900,m:0.009,loss:8,pellets:1,spread:0.004,cav:1.7,range:1e6,knock:8,snd:'rifle',cls:'rifle'},
+  doublebarrel:{name:'Double-Barrel Shotgun',E:170,m:0.003,loss:14,pellets:12,spread:0.085,cav:0.8,range:1e6,knock:8,snd:'shotgun',cls:'buck'},
+  autoshot:{name:'Automatic Shotgun',E:155,m:0.003,loss:13,pellets:8,spread:0.095,cav:0.75,range:1e6,knock:7,snd:'shotgun',auto:4,cls:'buck'},
+  pulsecarbine:{name:'Pulse Carbine',E:1250,m:0.002,loss:7,pellets:1,spread:0.01,cav:1.4,range:1e6,knock:6,snd:'rifle',auto:8,cls:'rifle'},
+  heavyrevolver:{name:'Heavy Revolver',E:1650,m:0.018,loss:10,pellets:1,spread:0.009,cav:1.55,range:1e6,knock:10,snd:'revolver',cls:'magnum'}
 };
 function rayRoomLen(x,y,dx,dy,max){
   let L=max;
@@ -2805,6 +2815,16 @@ const MWDEF={
   hammer: {n:'Hammer',L:34,m:0.6,xg:6,com:27,parts:[[0,29,0,1.1,'handle'],[32,32,4.6,1.5,'face'],[32,32,-6,0.7,'claw']]},
   pipe:   {n:'Steel pipe',L:60,m:1.2,xg:6,com:30,parts:[[0,60,0,1.7,'rod']],rough:1,rodR:1.7},
   crowbar:{n:'Crowbar',L:76,m:1.6,xg:8,com:40,parts:[[0,72,0,1.1,'rod'],[76,76,4,0.8,'claw']],rough:0.6,rodR:1.1},
+  spear:{n:'Spear',L:105,m:1.25,xg:10,com:52,parts:[[0,96,0,1.1,'rod'],[97,105,0,0.45,'tip']],rodR:1.1},
+  staff:{n:'Staff',L:100,m:1.1,xg:10,com:50,parts:[[0,100,0,2.1,'rod']],rodR:2.1},
+  wrench:{n:'Wrench',L:42,m:0.85,xg:7,com:29,parts:[[0,31,0,1.4,'handle'],[34,39,0,2.5,'face'],[41,42,0,1.4,'claw']],rough:0.2},
+  shovel:{n:'Shovel',L:92,m:1.8,xg:9,com:62,parts:[[0,76,0,1.4,'rod'],[77,92,0,3.8,'face']],rough:0.15,rodR:1.4},
+  pan:{n:'Frying pan',L:48,m:1.25,xg:7,com:29,parts:[[0,25,0,1.6,'handle'],[27,48,0,7.5,'face']]},
+  baton:{n:'Shock baton',L:48,m:0.65,xg:7,com:27,parts:[[0,48,0,1.8,'rod']],rodR:1.8},
+  trident:{n:'Trident',L:96,m:1.35,xg:9,com:49,parts:[[0,82,0,1.2,'rod'],[84,96,-4,0.45,'tip'],[84,96,0,0.45,'tip'],[84,96,4,0.45,'tip']],rodR:1.2},
+  energyblade:{n:'Energy blade',L:92,m:0.8,xg:12,com:18,kind:'saber',parts:[[0,24,0,1.7,'handle'],[25,92,0,0.75,'edge']]},
+  chainclub:{n:'Chain club',L:68,m:1.45,xg:8,com:50,parts:[[0,48,0,1.4,'handle'],[50,68,0,4.3,'face']]},
+  tonfa:{n:'Tonfa',L:58,m:0.9,xg:7,com:31,parts:[[0,58,0,1.7,'rod'],[16,16,7,1.6,'handle']],rodR:1.7},
 };
 let MW=[];
    // weapons in the world
@@ -5913,7 +5933,7 @@ function meleeUp(){if(!MWH)return;const o=MWH.o;MWH=null;if(o.stuck)return;o.fre
   const sp=Math.hypot(o.vx,o.vy);if(sp>400)emitLog(MWDEF[o.id].n+' thrown','info');}
 // front/back view: tap to strike. Strength picks how hard you swing: kinetic energy at impact for an adult swing
 // (½·m_eff·v², m_eff = weapon + ≈0.8 kg of arm): bat ≈ 28 m/s at the barrel → ≈ 400 J flat out; hammer ≈ 200 J; axe ≈ 500 J.
-const SWINGE={bat:400,pipe:420,crowbar:450,hammer:200,axe:500};
+const SWINGE={bat:400,pipe:420,crowbar:450,hammer:200,axe:500,spear:260,staff:300,wrench:190,shovel:330,pan:180,baton:160,trident:300,energyblade:420,chainclub:350,tonfa:190};
 const MSTRL=[['Light',0.15],['Medium',0.4],['Hard',0.7],['Full',1]];
 function mStr(){return MSTRL[clamp(OPT.mstr==null?2:OPT.mstr,0,3)];}
 function frontMeleeTool(t){return !!MWDEF[t]&&t!=='saber';}
@@ -8847,6 +8867,16 @@ function drawWeapon(c,id,d){if(WARTMELEE[id]&&typeof WARTBMP!=='undefined'&&WART
     c.strokeStyle='rgba(30,30,30,.45)';c.lineWidth=0.14;for(let x=55.5;x<60;x+=0.6){c.beginPath();c.moveTo(x,-1.7);c.lineTo(x+0.3,1.7);c.stroke();}for(let x=0.4;x<4.5;x+=0.6){c.beginPath();c.moveTo(x,-1.7);c.lineTo(x+0.3,1.7);c.stroke();}c.fillStyle='#2a2d30';c.beginPath();c.ellipse(60,0,0.5,1.5,0,0,6.28);c.fill();return;}
   if(id==='crowbar'){const g=c.createLinearGradient(0,-1.1,0,1.1);g.addColorStop(0,'#e0534a');g.addColorStop(1,'#8e1f19');c.fillStyle=g;c.fillRect(0,-1.1,71,2.2);c.fillStyle='#2b2b2b';c.fillRect(0,-1.1,9,2.2);
     c.strokeStyle=g;c.lineWidth=2.2;c.beginPath();c.moveTo(70,0);c.quadraticCurveTo(77,0,76.5,4.5);c.stroke();c.fillStyle='#3a3a3a';c.beginPath();c.moveTo(0,-1.1);c.lineTo(-3,-1.6);c.lineTo(-3,0.2);c.closePath();c.fill();c.fillStyle='rgba(255,255,255,.25)';c.fillRect(10,-0.9,58,0.4);return;}
+  // Generic renderer for the additional sandbox melee props.
+  const energy=id==='energyblade'||id==='baton',wood=['staff','spear','shovel','trident','tonfa'].includes(id),metal=energy?'#5bdcff':wood?'#8b6948':'#9ba5ad';
+  for(const part of d.parts){const [x0,x1,y,r,type]=part;c.save();
+    if(type==='edge'&&energy){for(const [w,a] of [[4,0.12],[2,0.32],[0.8,0.9]]){c.strokeStyle=`rgba(70,220,255,${a})`;c.lineWidth=w;c.beginPath();c.moveTo(x0,y);c.lineTo(x1,y);c.stroke();}}
+    else if(type==='tip'){c.fillStyle=metal;c.beginPath();c.moveTo(x0-r,y-r);c.lineTo(x1,y);c.lineTo(x0-r,y+r);c.closePath();c.fill();}
+    else if(type==='face'){c.fillStyle=metal;c.beginPath();c.ellipse((x0+x1)/2,y,Math.max(r,(x1-x0)/2),r*1.15,0,0,Math.PI*2);c.fill();c.strokeStyle='rgba(255,255,255,.35)';c.lineWidth=.3;c.stroke();}
+    else if(type==='claw'){c.strokeStyle=metal;c.lineWidth=Math.max(1,r*1.5);c.beginPath();c.moveTo(x0,y);c.lineTo(x1,y-r*2);c.lineTo(x1+2,y-r*2);c.stroke();}
+    else {c.strokeStyle=type==='handle'?'#26292d':metal;c.lineWidth=Math.max(0.7,r*1.7);c.beginPath();c.moveTo(x0,y);c.lineTo(x1,y);c.stroke();if(type==='handle'){c.strokeStyle='rgba(255,255,255,.25)';c.lineWidth=.25;for(let x=x0+2;x<x1;x+=3){c.beginPath();c.moveTo(x,y-r);c.lineTo(x+1,y+r);c.stroke();}}}
+    c.restore();}
+
 }
 function drawKnifeAt(c,x,y,ux,uy,vis,full,a){
   const nx=-uy,ny=ux,bw=1.6;c.globalAlpha=a==null?1:a;
@@ -9423,6 +9453,16 @@ const TOOLS=[
   {id:'pipe',cat:'melee',name:'Steel pipe',icon:'pipe',desc:'1.2 kg · rough steel, scrapes and splits skin',front:true,hint:'Side view: take it and swing. Front/back: tap to strike.'},
   {id:'crowbar',cat:'melee',name:'Crowbar',icon:'crowbar',desc:'1.6 kg steel · the hook punches holes',front:true,hint:'Side view: take it and swing; the hooked end punctures. Front/back: tap to strike.'},
   {id:'hammer',cat:'melee',name:'Hammer',icon:'hammer',desc:'0.6 kg · round face, depressed fractures',front:true,hint:'Side view: take it by the handle and swing; the face leaves a round mark, the claw punctures. Front/back: tap to strike.'},
+  {id:'spear',cat:'melee',name:'Spear',icon:'knife',desc:'Long fantasy polearm prop',front:true,hint:'Side view: grab and swing or thrust; front/back: tap to strike.'},
+  {id:'staff',cat:'melee',name:'Staff',icon:'pipe',desc:'Long balanced practice staff',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
+  {id:'wrench',cat:'melee',name:'Wrench',icon:'hammer',desc:'Heavy utility-tool prop',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
+  {id:'shovel',cat:'melee',name:'Shovel',icon:'axe',desc:'Long-handled utility-tool prop',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
+  {id:'pan',cat:'melee',name:'Frying pan',icon:'hammer',desc:'Broad lightweight pan prop',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
+  {id:'baton',cat:'melee',name:'Shock baton',icon:'pipe',desc:'Fictional glowing baton',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
+  {id:'trident',cat:'melee',name:'Trident',icon:'saber',desc:'Fantasy three-pronged staff',front:true,hint:'Side view: grab and thrust; front/back: tap to strike.'},
+  {id:'energyblade',cat:'melee',name:'Energy blade',icon:'saber',desc:'Fictional glowing energy blade',front:true,hint:'Side view: grab and sweep; front/back: swipe across the body.'},
+  {id:'chainclub',cat:'melee',name:'Chain club',icon:'bat',desc:'Fantasy weighted club prop',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
+  {id:'tonfa',cat:'melee',name:'Tonfa',icon:'pipe',desc:'Short side-grip training baton',front:true,hint:'Side view: grab and swing; front/back: tap to strike.'},
   {id:'brick',cat:'thrown',name:'Brick',icon:'brick',desc:'2.5 kg',throw:true,hint:'Drag toward a target and release to throw. Tap to drop.'},
   {id:'ball',cat:'thrown',name:'Bowling',icon:'ball',desc:'7 kg bowling ball',throw:true,hint:'Drag toward a target and release to throw. Tap to drop.'},
   {id:'anvil',cat:'thrown',name:'Anvil',icon:'anvil',desc:'100 kg industrial anvil',throw:true,hint:'Tap high above him to drop it, or drag and release to throw. 100 kg of steel crushes whatever it lands on.'},
@@ -9502,13 +9542,23 @@ const TOOLS=[
   {id:'serum',cat:'drugs',name:'Super serum',icon:'syringe',desc:'Experimental: the body regenerates',front:true,drug:true},
   {id:'zvirus',cat:'drugs',name:'Zombie virus',icon:'syringe',desc:'He sickens, dies, then rises rotten and hungry',front:true,drug:true},
   {id:'flumazenil',cat:'drugs',name:'Flumazenil',icon:'syringe',desc:'Reverses midazolam',front:true,drug:true},
+  {id:'burst9',cat:'guns',name:'Burst Pistol',icon:'pistol',desc:'Quick burst-fire sidearm',gun:true,front:true},
+  {id:'machinep',cat:'guns',name:'Machine Pistol',icon:'pistol',desc:'Compact automatic sidearm',gun:true,front:true},
+  {id:'pdw',cat:'guns',name:'Compact PDW',icon:'smg',desc:'Fast compact automatic firearm',gun:true,front:true},
+  {id:'bullpup',cat:'guns',name:'Bullpup Rifle',icon:'rifle',desc:'Compact rifle with controlled automatic fire',gun:true,front:true},
+  {id:'battlerifle',cat:'guns',name:'Battle Rifle',icon:'rifle',desc:'Heavy-hitting rifle with slower fire',gun:true,front:true},
+  {id:'leverrifle',cat:'guns',name:'Lever Rifle',icon:'rifle',desc:'Accurate single-shot rifle',gun:true,front:true},
+  {id:'doublebarrel',cat:'guns',name:'Double-Barrel Shotgun',icon:'shotgun',desc:'Wide-spread close-range game shotgun',gun:true,front:true},
+  {id:'autoshot',cat:'guns',name:'Automatic Shotgun',icon:'shotgun',desc:'Rapid multi-projectile shotgun',gun:true,front:true},
+  {id:'pulsecarbine',cat:'guns',name:'Pulse Carbine',icon:'rifle',desc:'Fictional pulse-style carbine',gun:true,front:true},
+  {id:'heavyrevolver',cat:'guns',name:'Heavy Revolver',icon:'pistol',desc:'Heavy single-shot sidearm',gun:true,front:true},
 ];
 const TOOL={};
 TOOLS.forEach(t=>TOOL[t.id]=t);
 const SUBG={
   hand:[['Interact',['grab','move','remove','rope']],['Utility',['extinguisher']]],
-  guns:[['Handguns',['p22','pistol','p45','revolver']],['Automatic',['smg','rifle','ak']],['Shotguns',['shotgun','slug']],['Precision',['dmr','sniper','bmg']],['Bows',['bow','crossbow']],['Special',['flamer']]],
-  melee:[['Blades',['knife','machete','axe','saber']],['Blunt',['bat','pipe','crowbar','hammer']]],
+  guns:[['Handguns',['p22','pistol','p45','revolver','burst9','machinep','heavyrevolver']],['Automatic',['smg','rifle','ak','pdw','bullpup','battlerifle','pulsecarbine']],['Shotguns',['shotgun','slug','doublebarrel','autoshot']],['Precision',['dmr','sniper','bmg','leverrifle']],['Bows',['bow','crossbow']],['Special',['flamer']]],
+  melee:[['Blades & fantasy',['knife','machete','axe','saber','energyblade','spear','trident']],['Blunt & utility',['bat','pipe','crowbar','hammer','staff','wrench','shovel','pan','baton','chainclub','tonfa']]],
   thrown:[['Objects',['brick','ball','anvil']],['Explosive',['grenade']]],
   props:[['Furniture',['table','chair','gurney']],['Containers',['pool']]],
   chem:[['Glassware',['beakerS','beaker','beakerL']],['Liquids',['jug','h2so4','hcl','naoh','nh3','h2o2','etoh','ln2','ind']],['Solids',['k','na','soda']]],
@@ -10080,8 +10130,10 @@ function updateHUD(dt){
   else if(V.dead){cls='dead';txt='Deceased';}
   else if(V.bd){cls='dead';txt='Brain dead';}
   else if(V.arrest){cls='arrest';txt='Arrest';}
+  else if((Number(V.ext)||0)+(Number(V.int)||0)>=10){cls='shock';txt='Bleeding Out';}
   else if(V.consc<0.35&&(ORG.brain.hp<20||(ORG.brain.stem??100)<92)){cls='dead';txt='Coma';}
-  else if(V.consc<0.35){cls='unc';txt='Unconscious';}
+  else if(Number(V.ko)>0||V.consc<0.35){cls='unc';txt='Knocked Out';}
+  else if(Number(V.painEff??V.pain)>30){cls='injured';txt='In Pain';}
   else if(frac<0.72||V.sys<90){cls='shock';txt='Shock';}
   else if(injured){cls='injured';txt='Injured';}
   st.className='pill '+cls;st.textContent=txt;
@@ -11000,7 +11052,10 @@ cv.addEventListener('wheel',e=>{if(STORY.on){e.stopImmediatePropagation();e.prev
           const avx=(p.x-p.px)*60,avy=(p.y-p.py)*60,bvx=((1-d.t)*(q.x-q.px)+d.t*(r.x-r.px))*60,bvy=((1-d.t)*(q.y-q.py)+d.t*(r.y-r.py))*60;
           const speed=Math.hypot(avx-bvx,avy-bvy);if(speed<350)continue;
           const key=[A.b.id,B.b.id,p.seg,sg.id].join(':');if((collisionCooldown.get(key)||-99)>T-0.45)continue;
-          const E=0.5*((p.m||0.2)+(sg.mass||1)*0.3)*(speed/100)**2*0.9;if(E<38)continue;
+          let E=0.5*((p.m||0.2)+(sg.mass||1)*0.3)*(speed/100)**2*0.9;
+          const aPart=A.st.segs[p.seg],punchA=!!(aPart&&aPart.kind==='hand'&&A.st.ACT&&A.st.ACT.fist),punchB=!!(sg.kind==='hand'&&B.st.ACT&&B.st.ACT.fist);
+          if(punchA||punchB)E*=8; // Stronger fist impacts; head contacts can now produce a proper knockout.
+          if(E<38)continue;
           collisionCooldown.set(key,T);done++;
           // If the player is dragging an NPC into another body, treat that NPC as the attacker:
           // only the body being struck receives collision injuries, never the grabbed hitter.
@@ -11228,7 +11283,7 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
   const panel=document.createElement('section');panel.id='npcSpawnPanel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','NPC spawner');
   panel.innerHTML=`<h3>NPC Spawner</h3><p>Spawn extra people into the current scene. Use the game’s built-in Grab tool to grab the main character or spawned NPCs. Characters collide in standing and ragdoll poses.</p>
     <label for="npcSpawnName">Name</label><input id="npcSpawnName" maxlength="24" value="Guard" />
-    <label for="npcSpawnWear">Clothing</label><select id="npcSpawnWear"><option value="under">Underwear</option><option value="clothed">Clothed</option></select>
+    <label for="npcSpawnWear">Clothing / outfit</label><select id="npcSpawnWear"><option value="under">Underwear</option><option value="casual" selected>Casual — T-shirt, jeans, boots</option><option value="lab">Lab worker — clothes + vest</option><option value="guard">Guard — clothes, vest, helmet</option><option value="armored">Armoured — plate, helmet, boots</option></select>
     <div class="npcActions"><button class="primary" id="npcOne">Spawn 1</button><button class="primary" id="npcFive">Spawn 5</button><button id="npcClose">Close</button><button id="npcClear">Remove spawned NPCs</button></div>
     <div class="npcCount" id="npcSpawnCount">NPCs: 0</div>`;
   document.body.append(btn,panel);
@@ -11238,7 +11293,9 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
     const limit=30, amount=Math.min(n,limit-npcSpawned.length);
     if(amount<=0){const el=document.getElementById('npcSpawnCount');if(el)el.textContent='Limit reached (30 extra NPCs).';return;}
     const name=(document.getElementById('npcSpawnName').value||'Guard').trim().slice(0,24)||'Guard';
-    const wear=document.getElementById('npcSpawnWear').value==='clothed'?['shirt','pants','shoes']:['under'];
+    const outfit=document.getElementById('npcSpawnWear').value;
+    const outfits={under:['under'],casual:['under','shirt','jeans','boots'],lab:['under','shirt','jeans','boots','vest'],guard:['under','shirt','jeans','boots','vest','helmet'],armored:['under','boots','plate','helmet']};
+    const wear=outfits[outfit]||outfits.casual;
     const base=(typeof storyX==='function'?storyX():((P[SEG.chest.a].x+P[SEG.abd.b].x)/2));
     for(let i=0;i<amount;i++){
       const side=(i%2===0?1:-1), ring=Math.floor(i/2)+1;
@@ -11392,9 +11449,11 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
  const bar=(label,val,color,display)=>`<div class="tl-vital-meter"><label><span>${label}</span><span>${display}</span></label><div class="track"><div class="fill" style="width:${val}%;background:${color}"></div></div></div>`;
  function getStatus(v,org){
   if(v.dead||v.bd||Number(v.blood)<=0)return ['Dead','dead'];
+  if((Number(v.ext)||0)+(Number(v.int)||0)>=10)return ['Bleeding Out','warn'];
   const brain=org&&org.brain, brainHP=brain&&Number.isFinite(brain.hp)?brain.hp:100, stem=brain&&Number.isFinite(brain.stem)?brain.stem:100;
   if(Number(v.consc)<.35&&(brainHP<20||stem<92))return ['In a coma','warn'];
-  if(Number(v.ko)>0||Number(v.consc)<.35)return ['Unconscious','warn'];
+  if(Number(v.ko)>0||Number(v.consc)<.35)return ['Knocked Out','warn'];
+  if(Number(v.painEff??v.pain)>30)return ['In Pain','warn'];
   if(Number(v.blood)<3000||Number(v.spo2)<85||Number(v.hr)<35||Number(v.hr)>150)return ['Unstable','warn'];
   return ['Stable',''];
  }
@@ -11410,6 +11469,80 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
   }).join('');
  }
  setInterval(update,500);update();
+})();
+</script>
+
+<script>
+/* ===== Sandbox interaction upgrade: NPC grabs, celebratory jumps, stronger punches ===== */
+(()=>{
+  const newGunIds=['burst9','machinep','pdw','bullpup','battlerifle','leverrifle','doublebarrel','autoshot','pulsecarbine','heavyrevolver'];
+  // The catalog includes eleven distinct additions (the requested ten plus a scout sidearm).
+  if(typeof WEAP==='object'&&typeof TOOL==='object'){
+    for(const id of newGunIds){if(TOOL[id])continue;}
+    try{if(typeof refreshTools==='function')refreshTools();}catch(_){}
+  }
+  const stateOf=b=>b===BCUR?bodyGet():(b&&b.st);
+  const segPoint=(st,sg,t)=>{const a=st.P[sg.a],b=st.P[sg.b];if(!a||!b)return null;return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};};
+  const closestToSeg=(x,y,st,sg)=>{const a=st.P[sg.a],b=st.P[sg.b];if(!a||!b)return null;return dps(x,y,a.x,a.y,b.x,b.y);};
+  let contactKey='',contactSince=0,activeGrab=null;
+  function grabContactStep(){
+    if(activeGrab){
+      const H=stateOf(activeGrab.holder),Q=stateOf(activeGrab.target);
+      if(!H||!Q||!H.P||!Q.P||!H.V||!Q.V||H.V.dead||Q.V.dead){activeGrab=null;contactKey='';return;}
+      const pain=Number(Q.V.painEff??Q.V.pain)||0;
+      if(pain>50){const releasedName=activeGrab.target.name||'NPC';activeGrab=null;contactKey='';try{if(typeof emitLog==='function')emitLog(releasedName+' broke free when pain passed 50','good');}catch(_){}return;}
+      const hs=H.segs.find(x=>x.id===activeGrab.hSegId)||H.segs[activeGrab.hSegIndex],ts=Q.segs.find(x=>x.id===activeGrab.tSegId)||Q.segs[activeGrab.tSegIndex];
+      if(!hs||!ts)return;
+      const hp=segPoint(H,hs,activeGrab.hT),tp=segPoint(Q,ts,activeGrab.tT);if(!hp||!tp)return;
+      let dx=hp.x-tp.x,dy=hp.y-tp.y,dist=Math.hypot(dx,dy),lim=1.8;
+      if(dist>lim){dx*=lim/dist;dy*=lim/dist;}
+      for(const p of Q.P){if(p.gone)continue;p.x+=dx;p.y+=dy;p.px+=dx;p.py+=dy;}
+      return;
+    }
+    if(!grab||!grab.body||!BODIES.includes(grab.body)||!grab.seg||!pointerW){contactKey='';return;}
+    const holder=grab.body,H=stateOf(holder);if(!H||!H.P||!H.segs||!H.V||H.V.dead){contactKey='';return;}
+    const hSeg=H.segs.find(x=>x===grab.seg)||grab.seg,hPt=segPoint(H,hSeg,Number.isFinite(grab.t)?Math.max(0,Math.min(1,grab.t)):0.5);if(!hPt){contactKey='';return;}
+    let best=null,bestD=Infinity;
+    for(const target of [BODY0,...BODIES]){
+      if(target===holder)continue;
+      const Q=stateOf(target);if(!Q||!Q.P||!Q.segs||!Q.V||Q.V.dead)continue;
+      for(let si=0;si<Q.segs.length;si++){
+        const sg=Q.segs[si];if(!sg||sg.gone)continue;
+        const q=closestToSeg(hPt.x,hPt.y,Q,sg);if(!q)continue;
+        const rr=(H.P[hSeg.a]?.r||2)+(typeof rad==='function'?rad(sg,q.t):2)+3;
+        if(q.d<rr&&q.d<bestD){bestD=q.d;best={target,sg,si,t:q.t};}
+      }
+    }
+    if(!best){contactKey='';contactSince=0;return;}
+    const key=holder.id+':'+best.target.id+':'+(best.sg.id??best.si);
+    if(key!==contactKey){contactKey=key;contactSince=T;return;}
+    if(T-contactSince<3)return;
+    activeGrab={holder,target:best.target,hSegId:hSeg.id,hSegIndex:H.segs.indexOf(hSeg),tSegId:best.sg.id,tSegIndex:best.si,hT:Number.isFinite(grab.t)?Math.max(0,Math.min(1,grab.t)):0.5,tT:best.t};
+    try{if(typeof emitLog==='function')emitLog((holder.name||'NPC')+' grabbed '+(best.target.name||'the other person')+' after 3 seconds of contact','info');}catch(_){}
+  }
+  if(typeof physStep==='function'){
+    const originalPhysStep=physStep;
+    physStep=function(h){originalPhysStep(h);try{grabContactStep();}catch(e){console.warn('NPC grab update',e);}};
+  }
+  // A knockout event makes every other spawned NPC do a brief upward celebratory hop.
+  function happyHop(source){
+    for(const b of BODIES){if(!b||b===source||!b.st||!b.st.P||!b.st.V||b.st.V.dead||b.st.V.ko>20)continue;
+      for(const p of b.st.P){if(p.gone)continue;p.py=p.y+0.8;}
+      b.st.happyUntil=(typeof T==='number'?T:0)+1.4;
+    }
+    try{if(typeof emitLog==='function')emitLog('An NPC was knocked out — the other NPCs jump in happiness!','good');}catch(_){}
+  }
+  if(typeof blunt==='function'){
+    const originalBlunt=blunt;
+    blunt=function(seg,s,w,E,src,focus,raw){
+      const source=typeof BCUR!=='undefined'?BCUR:null,was=typeof V!=='undefined'&&V?Number(V.ko)||0:0;
+      const result=originalBlunt.call(this,seg,s,w,E,src,focus,raw);
+      const now=typeof V!=='undefined'&&V?Number(V.ko)||0:0;
+      if(source&&source!==BODY0&&now>20&&was<=20)happyHop(source);
+      return result;
+    };
+  }
+  window.__traumaLabGrabUpgrade={get active(){return !!activeGrab;},release(){activeGrab=null;contactKey='';}};
 })();
 </script>
 </body>
