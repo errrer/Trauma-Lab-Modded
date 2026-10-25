@@ -884,7 +884,7 @@ let VS=1.5,VX=0,VY=0;
 const CAM={side:{z:1,px:0,py:0},front:{z:1,px:0,py:0},back:{z:1,px:0,py:0}};
 let view='side';
 let G=981;
-const SUB=6, ITER=12;
+const SUB=6, ITER=18;
 let T=0, hPrev=0, timeScale=1, xray=false, soundOn=true, shake=0;
 /* ---------- options ---------- */
 const OPT_DEF={sex:'m',mon:0,keys:null,mstr:2,chemq:2,chemc:0,ammo:{},mlist:false,gunvol:1,casevol:0.5,pip:false,scene:'lab',surg:'simple',tear:true,beep:true,xl:{skin:true,muscles:true,organs:true,vessels:true,bones:true,nerves:true},gore:3,strands:true,spatter:true,clot:true,god:false,bleedout:true,react:true,painfx:true,slowmo:false,arrowcam:true,gravity:'earth',skin:'medium',quality:'auto',shake:true,hints:true,logs:true,pin:true,fps:false,vol:0.8,amb:true,vib:true};
@@ -979,7 +979,7 @@ function spawnPerson(x,o){o=o||{};const b={id:(spawnPerson.n=(spawnPerson.n||0)+
 function bodyContacts(){
   const L=[BODY0,...BODIES].map(b=>{const s=b===BCUR?bodyGet():b.st;let x0=1e9,x1=-1e9;for(const p of s.P){if(p.gone)continue;if(p.x<x0)x0=p.x;if(p.x>x1)x1=p.x;}return{P:s.P,segs:s.segs,x0,x1,up:s.V.rise>0.3};});
   // Extra constraint/contact passes and stronger momentum transfer make NPC-to-NPC impacts feel weightier.
-  for(let pass=0;pass<10;pass++)for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
+  for(let pass=0;pass<12;pass++)for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
     const a=L[i],b=L[j];if(a.x1+18<b.x0||b.x1+18<a.x0)continue;
     bodyPush(a,b,1.15);bodyPush(b,a,1.15);
   }
@@ -1327,9 +1327,11 @@ function orgState(o){return o.hp>=99?'intact':o.hp>75?'bruised':o.hp>40?'lacerat
    DAMAGE
    ========================================================= */
 // he starts in the grey lab-issue boxer briefs of the redesign (take them off in Wear)
-let WEAR={under:{on:true},shirt:{on:false},jeans:{on:false},boots:{on:false},vest:{on:false,hp:100},plate:{on:false,hp:100},helmet:{on:false,hp:100},helm:{on:false,hp:100},gorget:{on:false,hp:100},cuirass:{on:false,hp:100},pauldrons:{on:false,hp:100},vambraces:{on:false,hp:100},gauntlets:{on:false,hp:100},cuisses:{on:false,hp:100},greaves:{on:false,hp:100},sabatons:{on:false,hp:100}};
+let WEAR={under:{on:true},shirt:{on:false},hoodie:{on:false},jacket:{on:false},jeans:{on:false},boots:{on:false},vest:{on:false,hp:100},plate:{on:false,hp:100},helmet:{on:false,hp:100},helm:{on:false,hp:100},gorget:{on:false,hp:100},cuirass:{on:false,hp:100},pauldrons:{on:false,hp:100},vambraces:{on:false,hp:100},gauntlets:{on:false,hp:100},cuisses:{on:false,hp:100},greaves:{on:false,hp:100},sabatons:{on:false,hp:100}};
 const WEARDEF={
   shirt:{name:'T-shirt',desc:'Cotton, no protection',col:'#5a6b7e'},
+  hoodie:{name:'Hoodie',desc:'Soft hooded sweatshirt, no protection',col:'#8b604c'},
+  jacket:{name:'Casual jacket',desc:'Layered fabric jacket, no protection',col:'#53606e'},
   jeans:{name:'Jeans',desc:'Denim, no protection',col:'#2f4766'},
   boots:{name:'Boots',desc:'Leather, turns knife slashes',col:'#3d2b1f'},
   vest:{name:'Aramid vest',desc:'Soft armour IIIA. Stops handguns, buckshot, fragments',col:'#24292e'},
@@ -1345,7 +1347,7 @@ const WEARDEF={
   greaves:{name:'Greaves',desc:'Shin plates with knee cops · gap behind the knee',col:'#9aa2aa'},
   sabatons:{name:'Sabatons',desc:'Articulated steel shoes',col:'#9aa2aa'},
 };
-const WRANGE={gorget:{neck:[-99,999]},cuirass:{chest:[-99,999],abd:[-99,999]},pauldrons:{uarm:[-99,999]},vambraces:{farm:[-99,999]},gauntlets:{hand:[-99,999]},cuisses:{thigh:[-99,999]},greaves:{shin:[-99,999]},sabatons:{foot:[-99,999]},shirt:{chest:[-99,99],abd:[-99,17],uarm:[-99,11]},jeans:{abd:[15,99],thigh:[-99,999],shin:[-99,999]},boots:{foot:[-99,999],shin:[-12,999]},vest:{chest:[-5,99],abd:[-99,13]},plate:{chest:[-4,99],abd:[-99,8]}};
+const WRANGE={gorget:{neck:[-99,999]},cuirass:{chest:[-99,999],abd:[-99,999]},pauldrons:{uarm:[-99,999]},vambraces:{farm:[-99,999]},gauntlets:{hand:[-99,999]},cuisses:{thigh:[-99,999]},greaves:{shin:[-99,999]},sabatons:{foot:[-99,999]},shirt:{chest:[-99,99],abd:[-99,17],uarm:[-99,11]},hoodie:{chest:[-99,99],abd:[-99,17],uarm:[-99,11]},jacket:{chest:[-99,99],abd:[-99,17],uarm:[-99,11]},jeans:{abd:[15,99],thigh:[-99,999],shin:[-99,999]},boots:{foot:[-99,999],shin:[-12,999]},vest:{chest:[-5,99],abd:[-99,13]},plate:{chest:[-4,99],abd:[-99,8]}};
 function wearRange(it,seg){if(it==='under'){const k=seg.kind;if(k==='abd')return[FEMALE?16:14,99];if(k==='thigh')return[-99,FEMALE?3.5:16];if(k==='chest'&&FEMALE&&!seg.part)return[7.5,17.5];return null;}const m=WRANGE[it];if(!m)return null;const r=m[seg.kind];if(!r)return null;if(it==='boots'&&seg.kind==='shin'){const L0=restLen(seg);return[L0-12,999];}return r;}
 function covers(it,seg,s,w){
   if(!WEAR[it].on)return false;
@@ -1391,8 +1393,8 @@ function bladeBlock(seg,s,w,kind,stab){
   return null;
 }
 function bluntArmor(seg,s,w){let f=1;for(const it of STEELK)if(covers(it,seg,s,w)&&WEAR[it].hp>0){f*=it==='helm'?0.5:0.6;break;}if(covers('helmet',seg,s,w)&&WEAR.helmet.hp>0)f*=0.45;else if(covers('plate',seg,s,w))f*=0.55;else if(covers('vest',seg,s,w))f*=0.82;else if(covers('boots',seg,s,w))f*=0.85;return f;}
-const WORDER=['under','jeans','shirt','boots','vest','plate'];
-const WTHK={under:0.1,shirt:0.25,jeans:0.45,boots:0.9,vest:1.4,plate:2.3};
+const WORDER=['under','jeans','shirt','hoodie','jacket','boots','vest','plate'];
+const WTHK={under:0.1,shirt:0.25,hoodie:0.5,jacket:0.55,jeans:0.45,boots:0.9,vest:1.4,plate:2.3};
 // ---------- full steel plate armour (≈1.5–2 mm tempered steel over padding) ----------
 // Plate turns blades and arrows and spreads blunt blows, but it has gaps where it must move
 // (armpits, inner elbows, backs of knees, eye slit, fingers). A 9 mm can punch through at close range; rifles go through.
@@ -1815,7 +1817,11 @@ function physStep(h){
   }
   npcGunPickupStep(h);
   objStep(h);
-  propStep(h);propGrabStep(h);if(PROPS.length)poolForces(h);
+  propStep(h);
+  // Guns are separate rigid props; resolve their contact against every spawned NPC,
+  // including when an NPC is holding one. The holder is excluded to avoid self-collision.
+  if(PROPS.length&&BODIES.length){for(const pr of PROPS){if(!pr.weaponKind||pr.dead)continue;for(const npc of BODIES){if(pr.aiHolder===npc)continue;withBody(npc,()=>gunNPCSolidContact(pr,h));}}}
+  propGrabStep(h);if(PROPS.length)poolForces(h);
   bulletStep(h);arrowStep(h);
 }
 // one body's step; `main` is the subject, who alone carries the sandbox's thrown objects, knives, grab and ropes
@@ -1829,10 +1835,19 @@ function bodyStep(h,ratio,main){
   for(const j of joints){
     if(j.broken)continue;const m=muscleBase(j);if(m<0.02)continue;
     const [tg,str]=poseTarget(j.key,j,h);
-    const poseStrength=JK[j.key]*m*str*(main?1.22:1);
-    angC(j,tg*D2R,Math.min(main?0.72:0.6,poseStrength),0.75);
+    const activeNPC=!main&&V&&!V.dead&&(V.ko||0)<8&&(V.pain||0)<85;
+    const poseStrength=JK[j.key]*m*str*(main?1.22:(activeNPC?1.32:1));
+    angC(j,tg*D2R,Math.min(main?0.72:(activeNPC?0.70:0.6),poseStrength),0.75);
   }
   behaviours(h);
+  // Active NPCs keep a more convincing stance: stronger posture correction and gentle low-speed balance damping.
+  // Large impacts still transfer momentum naturally, so they can be knocked down rather than becoming rigid.
+  if(!main&&V&&!V.dead&&(V.ko||0)<8&&(V.pain||0)<85){
+    for(const p of P){if(p.gone)continue;const vx=(p.x-p.px)*ratio,vy=(p.y-p.py)*ratio;
+      if(Math.abs(vx)<1.1)p.px=p.x-(p.x-p.px)*0.90;
+      if(Math.abs(vy)<0.8&&p.y>-p.r-3)p.py=p.y-(p.y-p.py)*0.92;
+    }
+  }
   if(main)knifeStep(h);
   if(main&&grab&&pointerW&&!grab.body){
     if(grab.prop){}
@@ -2124,7 +2139,7 @@ function propStep(h){
     // the body
     const bx0=pr.x;
     // climbing over a piece of story cover: hands and legs go over it, so the body does not collide with it meanwhile
-    forBodies(()=>{if(!pr.aiNoCollide && !(ACT.on&&((ACT.vault&&ACT.vault.pr===pr)||(ACT.passT>0&&ACT.passPr===pr))))for(const s of segs){if(s.gone)continue;const A=P[s.a],B=P[s.b];
+    forBodies(()=>{if(!pr.aiNoCollide && (!pr.weaponKind || BCUR===BODY0) && !(ACT.on&&((ACT.vault&&ACT.vault.pr===pr)||(ACT.passT>0&&ACT.passPr===pr))))for(const s of segs){if(s.gone)continue;const A=P[s.a],B=P[s.b];
       const mx=(A.x+B.x)/2,my=(A.y+B.y)/2;if(Math.hypot(mx-pr.x,my-pr.y)>pr.R+s.len/2+12)continue;
       for(const c of pr.C){const p=propPt(pr,c);const r=dps(p.x,p.y,A.x,A.y,B.x,B.y);const RR=rad(s,r.t)+c[2];
         // resting on top (within 0.45 cm, the same margin as the floor): remember it for static friction below
@@ -2177,6 +2192,29 @@ function propStep(h){
         propImpact(a,-vn,null,cx,cy);propImpact(b,-vn,null,cx,cy);}}}}
   for(let i=PROPS.length-1;i>=0;i--)if(PROPS[i].dead)PROPS.splice(i,1);
 }
+// Physical gun-to-spawned-NPC contact. This is a collision response only: it keeps
+// gun props from passing through NPCs and transfers momentum without adding injury effects.
+function gunNPCSolidContact(pr,h){
+  if(!pr||!pr.weaponKind||pr.dead||!segs||!segs.length)return;
+  for(const s of segs){if(s.gone)continue;const A=P[s.a],B=P[s.b];if(!A||!B)continue;
+    if(Math.hypot((A.x+B.x)*0.5-pr.x,(A.y+B.y)*0.5-pr.y)>pr.R+s.len*0.5+14)continue;
+    for(const c of pr.C){const p=propPt(pr,c),r=dps(p.x,p.y,A.x,A.y,B.x,B.y),rr=rad(s,r.t)+c[2];
+      if(!(r.d<rr&&r.d>1e-4))continue;
+      const nx=(p.x-r.qx)/r.d,ny=(p.y-r.qy)/r.d,t=r.t,pen=rr-r.d;
+      const vsx=lerp((A.x-A.px)/Math.max(h,1e-5),(B.x-B.px)/Math.max(h,1e-5),t);
+      const vsy=lerp((A.y-A.py)/Math.max(h,1e-5),(B.y-B.py)/Math.max(h,1e-5),t);
+      const oim=(1-t)*(1-t)*A.im+t*t*B.im;
+      const res=rbContact(pr,p.x-nx*c[2],p.y-ny*c[2],nx,ny,pen,vsx,vsy,oim,h);
+      const ka=A.im*(1-t),kb=B.im*t,sum=ka+kb||1,ps=Math.min(1.6,pen*(1-res.share)*0.85);
+      A.x-=nx*ps*ka/sum;A.y-=ny*ps*ka/sum;B.x-=nx*ps*kb/sum;B.y-=ny*ps*kb/sum;
+      A.px-=nx*ps*ka/sum*0.12;A.py-=ny*ps*ka/sum*0.12;B.px-=nx*ps*kb/sum*0.12;B.py-=ny*ps*kb/sum*0.12;
+      // Keep the response bounded so stacked NPCs remain stable.
+      if(res.jn>0){const jx=-(nx*res.jn+res.tx*res.jt),jy=-(ny*res.jn+res.ty*res.jt);
+        A.px-=jx*A.im*(1-t)*h*0.7;A.py-=jy*A.im*(1-t)*h*0.7;
+        B.px-=jx*B.im*t*h*0.7;B.py-=jy*B.im*t*h*0.7;}
+    }
+  }
+}
 function propImpact(pr,v,seg,x,y){
   if(pr.type!=='beaker'||pr.dead||T-pr.born<0.15)return;
   if(v>230){shatterBeaker(pr,seg);}
@@ -2191,10 +2229,10 @@ function propGrabStep(h){
   const rx=grab.lx*ca-grab.ly*sa,ry=grab.lx*sa+grab.ly*ca;
   const px=pr.x+rx,py=pr.y+ry,[vx,vy]=rbVel(pr,rx,ry);
   const m=Math.max(0.2,propMass(pr));
-  const stiffness=clamp(54/Math.sqrt(m),18,54),damping=clamp(7.5/Math.sqrt(m),2.5,7.5);
+  const stiffness=clamp(42/Math.sqrt(m),16,42),damping=clamp(10.5/Math.sqrt(m),4,10.5);
   let fx=((pointerW.x-px)*stiffness-vx*damping);
   let fy=((pointerW.y-py)*stiffness-vy*damping);
-  const maxForce=1800/Math.max(0.8,m),f=Math.hypot(fx,fy);
+  const maxForce=2200/Math.max(0.65,m),f=Math.hypot(fx,fy);
   if(f>maxForce){fx*=maxForce/f;fy*=maxForce/f;}
   rbImp(pr,rx,ry,fx*m*h,fy*m*h);
   // Damped angular inertia prevents tiny pointer movements from spinning props wildly.
@@ -2371,9 +2409,9 @@ function fire(kind,x0,y0,dx,dy,quiet){if(!quiet)buzz(kind==='bmg'||kind==='snipe
     const an=base+rnd(-Wp.spread,Wp.spread),ddx=Math.cos(an),ddy=Math.sin(an);
     const b={side:true,E:Wp.E*rnd(0.92,1.05),m:Wp.m,loss:Wp.loss,z:rnd(-1.15,1.15),cav:Wp.cav,knock:Wp.knock,sever:Wp.sever,k:kind};
     const L=rayRoomLen(x0,y0,ddx,ddy,Wp.range);
-    const hits=traceRay(x0,y0,ddx,ddy,L);
+    const hits=BODIES.length?traceAll(x0,y0,ddx,ddy,L):traceRay(x0,y0,ddx,ddy,L);
     let end=L;
-    for(const h of hits){if(b.E<=0)break;const zr=h.seg.zr;if(zr&&(b.z<zr[0]||b.z>zr[1]))continue;const zs=b.z;if(zr)b.z=clamp((zs-(zr[0]+zr[1])/2)/((zr[1]-zr[0])/2),-1,1);const st=through(h,b,x0,y0,ddx,ddy,rep);b.z=zs;if(st!=null){end=st;break;}}
+    for(const h of hits){if(b.E<=0)break;const zr=h.seg.zr,spawnedNpcHit=!!(h.bd&&h.bd.id&&h.bd.spawnedByMenu);if(zr&&(b.z<zr[0]||b.z>zr[1])&&!spawnedNpcHit)continue;const zs=b.z;if(zr)b.z=clamp((zs-(zr[0]+zr[1])/2)/((zr[1]-zr[0])/2),-1,1);const st=h.bd?withBody(h.bd,()=>through(h,b,x0,y0,ddx,ddy,rep)):through(h,b,x0,y0,ddx,ddy,rep);b.z=zs;if(st!=null){end=st;break;}}
     const ex=x0+ddx*end,ey=y0+ddy*end;
     FX.push({k:'trace',x1:x0,y1:y0,x2:ex,y2:ey,t:0,life:kind==='shrapnel'?0.08:0.14,w:kind==='sniper'?1:kind==='rifle'?0.7:0.45});
     if(end>=L-0.01&&L<Wp.range-1){FX.push({k:'spark',x:ex,y:ey,t:0,life:0.18});if(Math.abs(Math.abs(ex)-ROOM)<1||ey<TOP+1)wallHole(ex,ey);}
@@ -2397,8 +2435,10 @@ function bulletStep(h){
       let end=Math.min(step,wl),stopped=false;if(PROPS.length){propBullet(b,b.x,b.y,dx,dy,end);if(b.stopAt!=null){end=Math.min(end,b.stopAt);stopped=true;b.stopAt=null;}}
       if(STORY.on){const t=storyBulletStop(b.x,b.y,dx,dy,end);if(t!=null){end=t;stopped=true;FX.push({k:'spark',x:b.x+dx*t,y:b.y+dy*t,t:0,life:0.2});emitSound('tink',0.5);}}
       for(const ht of hits){
-        if(ht.tin>end)break;const hk=(ht.bd?ht.bd.id*1000:0)+ht.seg.idx;if(b.done.has(hk))continue;b.done.add(hk);
-        const zr=ht.seg.zr;if(zr&&(b.z<zr[0]||b.z>zr[1]))continue;
+        if(ht.tin>end)break;const hk=(ht.bd?ht.bd.id*1000:0)+ht.seg.idx;if(b.done.has(hk))continue;
+        const zr=ht.seg.zr;const spawnedNpcHit=!!(ht.bd&&ht.bd.id&&ht.bd.spawnedByMenu);
+        if(zr&&(b.z<zr[0]||b.z>zr[1])&&!spawnedNpcHit)continue;
+        b.done.add(hk);
         const zs=b.z;if(zr)b.z=clamp((zs-(zr[0]+zr[1])/2)/((zr[1]-zr[0])/2),-1,1);
         if(ht.bd&&ht.bd.id)b.shot.who=ht.bd.name;
         const r0=b.shot.rep.length;const st=ht.bd?withBody(ht.bd,()=>through(ht,b,b.x,b.y,dx,dy,b.shot.rep)):through(ht,b,b.x,b.y,dx,dy,b.shot.rep);b.z=zs;if(b.trk)for(const x of b.shot.rep.slice(r0))b.trk.hits.push(x);
@@ -2867,6 +2907,8 @@ function meleeStep(dt){if(!MW.length)return;const N=6,h=dt/N;
         if(Math.hypot(o.vx,o.vy)<6&&Math.abs(o.om)<0.4&&o.cy>-8){o.rest=true;o.vx=o.vy=o.om=0;}}
       else continue;
       mwBody(o,d,h);
+      // Spawned NPCs also have solid contact with world melee props. This is a physical-only response: it pushes the weapon and body apart without applying extra damage.
+      for(const npc of BODIES)withBody(npc,()=>mwBody(o,d,h));
     }
     // blades slice along the path their edge travelled this frame
     const now=S.map(s=>mwPt(o,s.x,s.y));let best=null;
@@ -2901,12 +2943,36 @@ function mwBody(o,d,h){const held=MWH&&MWH.o===o;
     const meff=d.m*0.75+(held?0.8:0),E=0.5*meff*Math.pow(vn/100,2),dp=meff*vn/100*1.2;
     impulse(g,r.t,-nx,-ny,Math.min(dp,40));
     if(held)o.om*=-0.25;else{const rx=p.x-o.cx,ry=p.y-o.cy,rn=rx*ny-ry*nx,j=1.25*vn/(1/d.m+rn*rn/d.Ic);o.vx+=nx*j/d.m;o.vy+=ny*j/d.m;o.om+=rn*j/d.Ic;o.cx+=nx*hit.pen*0.8;o.cy+=ny*hit.pen*0.8;}
-    if(vn<120||T-(o.cd.get(g)||-9)<0.22)continue;o.cd.set(g,T);
+    if(vn<45||T-(o.cd.get(g)||-9)<0.22)continue;o.cd.set(g,T);
     const L=toLocal(g,clamp(p.x-nx*s.r,-1e9,1e9),p.y-ny*s.r),tang=Math.min(1,Math.hypot(hit.rvx+nx*vn,hit.rvy+ny*vn)/Math.max(1,vn+Math.hypot(hit.rvx+nx*vn,hit.rvy+ny*vn)));
     const ax=dirLocal(g,Math.cos(o.ang),Math.sin(o.ang)),sl=dirLocal(g,hit.rvx,hit.rvy);
     emitSound('thud',Math.min(1,E/250));FX.push({k:'ring',x:p.x,y:p.y,t:0,life:0.25});
     if(s.t==='claw'){blunt2(g,clamp(L.s,0,g.len),L.w,E,d.n,{focus:3,punct:1,tang,slide:sl});continue;}
-    blunt2(g,clamp(L.s,0,g.len),L.w,s.t==='edge'?E*0.6:E,d.n,{pat:s.t==='face'?'ring':s.t==='rod'?'tram':null,focus:s.t==='face'?2.2:s.t==='handle'?1.2:s.t==='edge'?1.4:1,tang,ax,slide:sl,rough:d.rough||0,rodR:d.rodR||1.4,z:null});
+    const hitE=Math.max(22,E);
+    blunt2(g,clamp(L.s,0,g.len),L.w,s.t==='edge'?hitE*0.6:hitE,d.n,{pat:s.t==='face'?'ring':s.t==='rod'?'tram':null,focus:s.t==='face'?2.2:s.t==='handle'?1.2:s.t==='edge'?1.4:1,tang,ax,slide:sl,rough:d.rough||0,rodR:d.rodR||1.4,z:null});
+  }
+}
+// Solid weapon-to-spawned-NPC contact. Reuses the game's tapered segment collision geometry,
+// but deliberately applies only a collision impulse (no blade cuts or injury calls).
+function mwNPCSolidContact(o,d,h){
+  if(!segs||!segs.length)return;
+  const held=MWH&&MWH.o===o;
+  for(const g of segs){if(g.gone)continue;const A=P[g.a],B=P[g.b];if(!A||!B||A.gone&&B.gone)continue;
+    const mx=(A.x+B.x)/2,my=(A.y+B.y)/2;if(Math.hypot(mx-o.cx,my-o.cy)>d.L+g.len/2+12)continue;
+    let best=null;
+    for(const sm of d.S){const p=mwPt(o,sm.x,sm.y),r=dps(p.x,p.y,A.x,A.y,B.x,B.y),rr=rad(g,r.t)+sm.r;if(r.d>=rr||r.d<1e-4)continue;
+      const nx=(p.x-r.qx)/r.d,ny=(p.y-r.qy)/r.d,v=mwVel(o,p),hp=hPrev||1/360,svx=lerp((A.x-A.px)/hp,(B.x-B.px)/hp,r.t),svy=lerp((A.y-A.py)/hp,(B.y-B.py)/hp,r.t),rvx=v.x-svx,rvy=v.y-svy,vn=-(rvx*nx+rvy*ny);
+      if(!best||rr-r.d>best.pen)best={p,r,nx,ny,vn,rvx,rvy,pen:rr-r.d};
+    }
+    if(!best)continue;const {p,r,nx,ny,vn,pen}=best;
+    if(pen>0){o.cx+=nx*pen*0.7;o.cy+=ny*pen*0.7;const push=Math.min(2.5,pen*0.18);
+      A.x-=nx*push*(1-r.t);A.y-=ny*push*(1-r.t);B.x-=nx*push*r.t;B.y-=ny*push*r.t;
+      A.px-=nx*push*(1-r.t)*0.12;A.py-=ny*push*(1-r.t)*0.12;B.px-=nx*push*r.t*0.12;B.py-=ny*push*r.t*0.12;
+    }
+    if(vn>0){const meff=d.m*0.75+(held?0.8:0),j=Math.min(18,Math.max(0,vn*meff/160));
+      impulse(g,r.t,-nx,-ny,j);if(held){const into=MWH.gvx*nx+MWH.gvy*ny;if(into<0){MWH.gvx-=nx*into*0.65;MWH.gvy-=ny*into*0.65;}}
+      else{o.vx+=nx*j/d.m;o.vy+=ny*j/d.m;o.om*=0.9;}
+    }
   }
 }
 // edge speed (cm/s) below which a blade stops cutting and just presses: a sharp knife slices at a slow draw, a heavy wedge needs a chop
@@ -5206,10 +5272,10 @@ const STORYL={start:-540,
   // boots and a soft vest (stops a 9 mm round to the chest or belly, not the head, neck or limbs). He doesn't act yet
   guards:[{x:85,face:-1,wear:['under','shirt','jeans','boots','vest']}]};
 // carried items: weapons are held in the hand, medicine is used on the worst wound (or where you choose, in the medical view)
-const SITEM={crowbar:{name:'Crowbar',w:true},pistol:{name:'Pistol',w:true},knife:{name:'Knife',w:true},bandage:{name:'Bandage',t:4},gauze:{name:'Gauze pack',t:6},tourniquet:{name:'Tourniquet',t:5},morphine:{name:'Morphine auto-injector',t:2.5}};
+const SITEM={crowbar:{name:'Crowbar',w:true},pistol:{name:'Pistol',w:true},knife:{name:'Knife',w:true},combatknife:{name:'Combat Knife · display prop',w:true},bandage:{name:'Bandage',t:4},gauze:{name:'Gauze pack',t:6},tourniquet:{name:'Tourniquet',t:5},morphine:{name:'Morphine auto-injector',t:2.5}};
 function storyInit(){
   Object.assign(STORY,{on:true,t:0,dir:0,held:null,inv:[],ammo:0,
-    items:[{id:'cab',x:STORYL.cab,y:-128,loot:['bandage','bandage','gauze','tourniquet','morphine']},{id:'pistol',x:STORYL.shelf-14,y:-98},{id:'knife',x:STORYL.shelf+16,y:-97},{id:'crowbar',x:STORYL.crowbar,y:-1.6}],
+    items:[{id:'cab',x:STORYL.cab,y:-128,loot:['bandage','bandage','gauze','tourniquet','morphine']},{id:'pistol',x:STORYL.shelf-14,y:-98},{id:'knife',x:STORYL.shelf+16,y:-97},{id:'combatknife',x:STORYL.shelf+42,y:-97},{id:'crowbar',x:STORYL.crowbar,y:-1.6}],
     door:{x:STORYL.door,open:0,pry:0,prying:false},
     tur:{x:STORYL.tur.x,y:STORYL.tur.y,hp:3,cd:0,ang:Math.PI,flash:0,seen:false,acq:0,tgt:null,down:false,fall:0,mode:'scan',scan:0,lost:0},
     busy:null,vault:null,aim:{x:0,y:-120},aimSeen:-9,aimA:null,raise:0,fireQ:false,cool:0,done:false,fail:null,pryKey:false,msg:'',msgT:0,run:false,duckWant:false,duckLatch:false,duckK:0,jy:0,jv:0,
@@ -5278,7 +5344,7 @@ function storyLoco(h,r){const A=ACT,F=FACE,feet=[SEG.farFoot,SEG.nearFoot];
 // where he walks. He turns only on his feet (fully up: turning while sitting would swing his legs through what is
 // behind him), and not in the middle of a jump, a climb, a kick, a stab or a treatment
 function storyFacing(x){const S=STORY;if(S.turnT>0||V.rise<0.95||S.sitK>0.02||S.prone||S.vault||S.busy||S.kickT>0||S.stabT>0||S.cover||S.jy<0||S.door.prying)return;
-  let want=0;const armed=S.held==='pistol'||S.held==='knife';
+  let want=0;const armed=S.held==='pistol'||S.held==='knife'||S.held==='combatknife';
   if(armed&&S.t-S.aimSeen<2.5){const dx=S.aim.x-x;if(Math.abs(dx)>12)want=Math.sign(dx);}
   else if(S.dir)want=S.dir;
   if(want&&want!==FACE)storyTurn();}
@@ -6395,6 +6461,57 @@ const ART={
 // medical tools whose id differs from the drawing
 const ART_ALIAS={beakerS:'beaker',beakerL:'beaker',gurney:'gurney',burngel:'burngel',extinguisher:'ext_'};
 ART.ext_={vb:[-7,-14,14,28],L:[['#c0392b',_RR(-4.4,-8,8.8,20,3)],[AC_.blk,_R(-1.6,-12,3.2,4)],[AC_.blk,'M1.6,-11L6,-10L6,-1',0.7],['#e8e2d0',_R(-3.2,-2,6.4,5)],['rgba(255,255,255,.25)',_R(-3.4,-8,1.2,19)]]};
+// Textured artwork for the ten added firearms. These are visual-only skins layered over the existing silhouettes.
+(()=>{
+  const specs={
+    burst9:['pistol','#3f6b7c','#c8a66a'],
+    machinep:['pistol','#354c3e','#b9c4cb'],
+    pdw:['smg','#475b72','#d6a84b'],
+    bullpup:['rifle','#536044','#b7c6d0'],
+    battlerifle:['rifle','#4b4f57','#d0b16a'],
+    leverrifle:['rifle','#6a4a32','#d5c19a'],
+    doublebarrel:['shotgun','#4c5056','#c8b28a'],
+    autoshot:['shotgun','#394b42','#b8c4ca'],
+    pulsecarbine:['rifle','#283b55','#56e4ff'],
+    heavyrevolver:['revolver','#45464b','#c5a56a']
+  };
+  for(const [id,[base,accent,metal]] of Object.entries(specs)){
+    const a=ART[base]; if(!a)continue;
+    const L=a.L.slice();
+    // Thin inset panels, fine grooves, and small fasteners make the silhouettes read as finished materials.
+    if(base==='pistol'||base==='revolver'){
+      L.push([accent,_RR(-13.2,-0.95,8.8,0.65,0.18)]);
+      L.push([metal,_C(-7.1,-0.62,0.34)]);
+      L.push(['rgba(255,255,255,.22)',_P(-15,-1.1,-12,-1.1,-11.5,-0.7,-14.7,-0.7)]);
+      L.push(['rgba(0,0,0,.42)',_rep(4,i=>`M${-22+i*1.15},4.2v1.8`),0.32]);
+    } else {
+      L.push([accent,_RR(-38,-0.75,12.5,0.55,0.18)]);
+      L.push([metal,_R(-25.1,-0.72,0.7,0.48)]);
+      L.push(['rgba(255,255,255,.2)',_R(-39,-1.9,13,0.25)]);
+      L.push(['rgba(0,0,0,.45)',_rep(6,i=>`M${-36+i*1.75},-0.25v1.05`),0.3]);
+    }
+    if(id==='leverrifle'){
+      L.push([accent,_P(-53,3,-62,3,-64,8,-60,9,-54,5)]);
+      L.push([metal,_C(-58.5,5.5,0.48)]);
+      L.push([metal,'M-42,3Q-39,7 -42,10',0.85]);
+    }
+    if(id==='doublebarrel'){
+      L.push([metal,_R(-48,-3.25,34,0.42)]);
+      L.push([accent,_R(-48,-1.8,34,0.55)]);
+      L.push(['rgba(0,0,0,.55)',_R(-48,0.15,34,0.5)]);
+    }
+    if(id==='pulsecarbine'){
+      L.push(['#56e4ff',_R(-35,-2.1,8,0.42)]);
+      L.push(['rgba(86,228,255,.22)',_RR(-37,-1.6,12,3.1,0.6)]);
+      L.push(['#d5fbff',_C(-31,-0.02,0.42)]);
+    }
+    if(id==='heavyrevolver'){
+      L.push([accent,_RR(-23,-1.2,5.3,1.25,0.25)]);
+      L.push([metal,_rep(4,i=>`M${-22.2+i*1.1},-1.05v0.95`),0.35]);
+    }
+    ART[id]={vb:a.vb.slice(),L};
+  }
+})();
 function artOf(id){const a=ART[id]||ART[ART_ALIAS[id]];return a||null;}
 // SVG for the item menu: fitted to its box; long guns stay long, small items get a bit of padding
 function artSVG(id,cls){
@@ -8159,6 +8276,28 @@ function drawClothesFront(s){
     for(const sd of ['near','far']){const id=sd+'UpperArm';if(!ok(id))continue;capBand(s,fp(id),-0.1,0.42,1);s.fill();s.fillStyle='rgba(0,0,0,.22)';capBand(s,fp(id),0.4,0.42,1);s.fill();s.fillStyle=WEARDEF.shirt.col;}
     s.fillStyle='rgba(0,0,0,.1)';for(let i=0;i<3;i++){s.fillRect(-12,-128+i*9,24,0.5);}
   }
+  for(const it of ['hoodie','jacket']){
+    if(!WEAR[it].on)continue;
+    const col=WEARDEF[it].col;
+    if(ok('chest')){
+      s.fillStyle=col;
+      s.beginPath();
+      const ys=[];for(let y=-147;y<=-94;y+=1)ys.push(y);
+      s.moveTo(torsoHW(-147)*1.09,-147);
+      for(const y of ys)s.lineTo(torsoHW(y)*1.09,y);
+      for(let i=ys.length-1;i>=0;i--)s.lineTo(-torsoHW(ys[i])*1.09,ys[i]);
+      s.closePath();s.fill();
+      s.strokeStyle='rgba(0,0,0,.28)';s.lineWidth=.35;s.beginPath();s.moveTo(0,-145);s.lineTo(0,-95);s.stroke();
+      if(it==='hoodie'){s.fillStyle='rgba(0,0,0,.16)';s.beginPath();s.ellipse(0,-146,5.8,3.8,0,0,6.28);s.fill();s.fillRect(-4,-111,8,4);}
+      else {s.fillStyle='rgba(255,255,255,.12)';s.fillRect(-9,-130,2,10);s.fillRect(7,-130,2,10);}
+    }
+    s.fillStyle=col;
+    for(const sd of ['near','far']){
+      const id=sd+'UpperArm';if(!ok(id))continue;
+      capBand(s,fp(id),-0.12,0.52,1.25);s.fill();
+      s.strokeStyle='rgba(0,0,0,.2)';s.lineWidth=.3;capBand(s,fp(id),0.36,0.52,1.25);s.stroke();
+    }
+  }
   if(WEAR.vest.on&&ok('chest')){s.fillStyle=WEARDEF.vest.col;torsoBand(s,-142,-98,0.9);s.fill();
     for(const sg of [1,-1]){s.beginPath();s.moveTo(sg*5.6,-147.5);s.lineTo(sg*10.4,-147.5);s.lineTo(sg*12,-141);s.lineTo(sg*5,-141);s.closePath();s.fill();}
     s.fillStyle='rgba(255,255,255,.07)';s.fillRect(-13,-124,26,1.2);s.fillRect(-13,-109,26,1.2);
@@ -9343,10 +9482,29 @@ function drawStoryFront(c){const S=STORY;setWorld(c);if(!S.held||V.dead&&!SEG.ne
   if(S.held==='pistol'){const kick=Math.max(0,S.cool-0.18)*4*FACE;
     // the grip passes through the fist ≈7 cm from the wrist, on the palm side; the bore is ≈3 cm above the knuckles.
     // Raised, the gun lines up with the aim; at the low ready it follows the hand
-    const g=toWorld(hd,7,0.6),ai=S.aimA??ha,up=S.aiming?S.raise:0,a=ha+wrap(ai-ha)*(S.blind?1:up*0.6)-kick;
-    c.save();c.translate(g.x,g.y);c.rotate(a);if(Math.cos(a)<0)c.scale(1,-1);c.translate(typeof WARTBMP!=='undefined'&&WARTBMP.pistol?15.8:15.5,typeof WARTBMP!=='undefined'&&WARTBMP.pistol?-4.4:-6.4);artDraw(c,'pistol');c.restore();
+    const g=toWorld(hd,0,0.2),ai=S.aimA??ha,up=S.aiming?S.raise:0,a=ha+wrap(ai-ha)*(S.blind?1:up*0.6)-kick;
+    c.save();c.translate(g.x,g.y);c.rotate(a);if(Math.cos(a)<0)c.scale(1,-1);c.translate(typeof WARTBMP!=='undefined'&&WARTBMP.pistol?9.2:9.0,typeof WARTBMP!=='undefined'&&WARTBMP.pistol?-1.2:-2.0);artDraw(c,'pistol');c.restore();
     if(hd===SEG.nearHand&&STORY.fist&&STORY.fist.near){const tone=skinTone(false);setLocal(c,hd);smoothPath(c,FISTP,[1,hd.len/15]);c.fillStyle=rgb(tone,0.97);c.fill();c.strokeStyle='rgba(70,35,25,.26)';c.lineWidth=0.2;c.stroke();fistDetail(c,tone);setWorld(c);}}
   else if(S.held==='knife'){const g=toWorld(hd,7,0.4);c.save();c.translate(g.x,g.y);c.rotate(ha);if(Math.cos(ha)<0)c.scale(1,-1);c.scale(0.75,0.75);c.translate(4,0);artDraw(c,'knife');c.restore();}
+  else if(S.held==='combatknife'){
+    // Blunt training/display prop: the grip is anchored to the wrist and rotates with the hand bone.
+    // This is cosmetic only; it has no attack action or special damage behaviour.
+    const g=toWorld(hd,6.5,0.25),flip=Math.cos(ha)<0;
+    c.save();c.translate(g.x,g.y);c.rotate(ha);if(flip)c.scale(1,-1);
+    c.lineJoin='round';c.lineCap='round';
+    // dark textured handle and guard
+    c.fillStyle='#252b31';c.strokeStyle='#080a0c';c.lineWidth=0.9;
+    c.beginPath();c.roundRect?c.roundRect(-8,-2.3,13,4.6,1.3):c.rect(-8,-2.3,13,4.6);c.fill();c.stroke();
+    c.strokeStyle='#68747d';c.lineWidth=0.65;
+    for(let x=-6;x<4;x+=3){c.beginPath();c.moveTo(x,-1.8);c.lineTo(x+2,1.8);c.stroke();}
+    c.fillStyle='#b4bdc5';c.fillRect(4.5,-3.2,2,6.4);
+    // broad, blunt-edged trainer blade with a squared tip
+    const grad=c.createLinearGradient(6,-3,25,3);grad.addColorStop(0,'#e1e6e9');grad.addColorStop(.55,'#9da8b0');grad.addColorStop(1,'#59636b');
+    c.fillStyle=grad;c.strokeStyle='#414a52';c.lineWidth=0.7;
+    c.beginPath();c.moveTo(6,-2.6);c.lineTo(21,-2.6);c.lineTo(25,-1.5);c.lineTo(25,1.5);c.lineTo(21,2.6);c.lineTo(6,2.6);c.closePath();c.fill();c.stroke();
+    c.strokeStyle='rgba(255,255,255,.55)';c.lineWidth=0.45;c.beginPath();c.moveTo(8,-1.4);c.lineTo(21,-1.4);c.stroke();
+    c.restore();
+  }
   else if(S.held==='crowbar'){const a=ha+FACE*(S.door.prying?-0.6:0.35);c.save();c.translate(q.x,q.y);c.rotate(a);if(Math.cos(a)<0)c.scale(1,-1);c.scale(0.9,0.9);c.translate(-12,0);artDraw(c,'crowbar');c.restore();}
 }
 
@@ -9710,7 +9868,7 @@ function openMapMenu(btn){
   m.hidden=false;$('scrim').hidden=false;
   const r=btn.getBoundingClientRect(),mw=m.offsetWidth;m.style.left=clamp(r.right-mw,12,W-mw-12)+'px';m.style.top=(r.bottom+8)+'px';m.style.bottom='auto';m.style.maxHeight=Math.max(200,H-r.bottom-24)+'px';
 }
-const WICON={helm:'<path d="M5 13a7 7 0 0 1 14 0v6H5zM8 13h8M12 13v6"/>',gorget:'<path d="M6 9h12l-1 6H7zM8 12h8"/>',cuirass:'<path d="M6 4h12l1 8-2 8H7l-2-8zM12 4v10M7 16h10"/>',pauldrons:'<path d="M4 10a8 6 0 0 1 16 0v2H4zM6 14h12v6H6z"/>',vambraces:'<path d="M8 4h8v16H8zM8 9h8M8 14h8"/>',gauntlets:'<path d="M7 20V10l2-6 2 6 2-6 2 6 2-4v14z"/>',cuisses:'<path d="M7 3h10l-1 18H8zM7 8h10"/>',greaves:'<path d="M8 3h8v18H8zM12 3v18"/><circle cx="12" cy="6" r="2.5"/>',sabatons:'<path d="M6 6h5v8l8 3v3H6zM6 14h13"/>',under:'<path d="M4 7h16l-1.5 5.5L14 18h-4l-4.5-5.5z"/><path d="M4 9.5h16"/>',shirt:'<path d="M8.5 3 4 6l2 4 2-1v12h8V9l2 1 2-4-4.5-3c-.8 1.4-2 2-3.5 2s-2.7-.6-3.5-2z"/>',jeans:'<path d="M6 3h12l1 18h-5l-2-11-2 11H5zM6 6h12"/>',boots:'<path d="M7 3h6v9l6 3.2V20H7zM7 17h12"/>',vest:'<path d="M8 3 5 6v14h14V6l-3-3-2.5 3.5h-3zM5 12h14M12 7v13"/>',plate:'<path d="M7 4h10v4l2 2v10H5V10l2-2zM8 12h8M8 15h8M8 18h8"/>',helmet:'<path d="M4 16a8 8 0 0 1 16 0v1H4zM2.5 17h19M9 9.5h6"/>'};
+const WICON={hoodie:'<path d="M8 5a4 4 0 0 1 8 0l3 3-2 4-2-1v9H9v-9l-2 1-2-4zM9 5h6"/>',jacket:'<path d="M8 3 4 6l2 4 2-1v12h8V9l2 1 2-4-4-3-3 4h-2zM12 7v14M9 12h1M14 12h1"/>',helm:'<path d="M5 13a7 7 0 0 1 14 0v6H5zM8 13h8M12 13v6"/>',gorget:'<path d="M6 9h12l-1 6H7zM8 12h8"/>',cuirass:'<path d="M6 4h12l1 8-2 8H7l-2-8zM12 4v10M7 16h10"/>',pauldrons:'<path d="M4 10a8 6 0 0 1 16 0v2H4zM6 14h12v6H6z"/>',vambraces:'<path d="M8 4h8v16H8zM8 9h8M8 14h8"/>',gauntlets:'<path d="M7 20V10l2-6 2 6 2-6 2 6 2-4v14z"/>',cuisses:'<path d="M7 3h10l-1 18H8zM7 8h10"/>',greaves:'<path d="M8 3h8v18H8zM12 3v18"/><circle cx="12" cy="6" r="2.5"/>',sabatons:'<path d="M6 6h5v8l8 3v3H6zM6 14h13"/>',under:'<path d="M4 7h16l-1.5 5.5L14 18h-4l-4.5-5.5z"/><path d="M4 9.5h16"/>',shirt:'<path d="M8.5 3 4 6l2 4 2-1v12h8V9l2 1 2-4-4.5-3c-.8 1.4-2 2-3.5 2s-2.7-.6-3.5-2z"/>',jeans:'<path d="M6 3h12l1 18h-5l-2-11-2 11H5zM6 6h12"/>',boots:'<path d="M7 3h6v9l6 3.2V20H7zM7 17h12"/>',vest:'<path d="M8 3 5 6v14h14V6l-3-3-2.5 3.5h-3zM5 12h14M12 7v13"/>',plate:'<path d="M7 4h10v4l2 2v10H5V10l2-2zM8 12h8M8 15h8M8 18h8"/>',helmet:'<path d="M4 16a8 8 0 0 1 16 0v1H4zM2.5 17h19M9 9.5h6"/>'};
 function openWearMenu(btn){
   const m=$('menu');if(!m.hidden&&m.dataset.cat==='wear'){closeMenu();return;}
   m.dataset.cat='wear';
@@ -10133,7 +10291,9 @@ function updateHUD(dt){
   else if((Number(V.ext)||0)+(Number(V.int)||0)>=10){cls='shock';txt='Bleeding Out';}
   else if(V.consc<0.35&&(ORG.brain.hp<20||(ORG.brain.stem??100)<92)){cls='dead';txt='Coma';}
   else if(Number(V.ko)>0||V.consc<0.35){cls='unc';txt='Knocked Out';}
-  else if(Number(V.painEff??V.pain)>30){cls='injured';txt='In Pain';}
+  else if(Number(V.painEff??V.pain)>=70){cls='injured';txt='Severe Pain';}
+  else if(Number(V.painEff??V.pain)>=35){cls='injured';txt='Heavily in Pain';}
+  else if(Number(V.painEff??V.pain)>=1){cls='injured';txt='In Pain';}
   else if(frac<0.72||V.sys<90){cls='shock';txt='Shock';}
   else if(injured){cls='injured';txt='Injured';}
   st.className='pill '+cls;st.textContent=txt;
@@ -10368,10 +10528,28 @@ function nowUpdate(){const t=TOOL[tool];if(!t||!$('nowCur'))return;
 $('nowCur').onclick=()=>{const c=TOPOF(TOOL[tool].cat);openMenu(c,$('c_'+c));};
 /* ---------- More: the controls that do not fit on a phone ---------- */
 const MORE=[['bPlay','Pause / play'],['bSlower','Slow motion'],['bFaster','Fast forward'],['bX','X-ray'],['bTraj','Bullet paths'],['bChart','Organ chart'],['bSnd','Sound'],['bBeep','Monitor beep'],['bMon','Monitor size'],['bOpt','Options'],['bReset','New subject']];
+function sandboxPlus(){
+  const m=$('menu');closeMenu();m.dataset.cat='sandboxPlus';
+  m.innerHTML='<h4>Sandbox+ · physics lab</h4><p style="margin:4px 12px 10px;color:var(--muted);font-size:12px">Extra world controls. Freeze keeps props in place; unfreeze restores physics.</p>'+
+  '<h4>Gravity</h4><div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;padding:0 8px 8px">'+
+  [['earth','Earth'],['moon','Moon'],['mars','Mars'],['jupiter','Jupiter'],['zero','Zero-G'],['sun','High-G']].map(([k,n])=>`<button class="mi" data-grav="${k}" aria-pressed="${OPT.gravity===k}"><b>${n}</b></button>`).join('')+'</div>'+ 
+  '<h4>World tools</h4>'+[['freeze','Freeze loose props','Hold every loose prop still'],['unfreeze','Unfreeze props','Restore gravity and motion'],['clone','Duplicate grabbed prop','Make a copy of the prop you are holding'],['clear','Clear loose props','Remove all physical props from the scene']].map(([a,n,d])=>`<button class="mi" data-sbx="${a}"><b>${n}</b><em>${d}</em></button>`).join('')+
+  '<button class="mi" data-sbx="back"><b>← Back to controls</b></button>';
+  m.querySelectorAll('[data-grav]').forEach(b=>b.onclick=()=>{const k=b.dataset.grav;OPT.gravity=k;G=GRAV[k]??981;saveOpt();m.querySelectorAll('[data-grav]').forEach(q=>q.setAttribute('aria-pressed',String(q===b)));log('Gravity set · '+b.textContent.trim(),'info');});
+  m.querySelectorAll('[data-sbx]').forEach(b=>b.onclick=()=>{const a=b.dataset.sbx;
+    if(a==='back'){openMore();return;}
+    if(a==='freeze'){let n=0;for(const pr of PROPS){if(pr.held||pr.aiHolder||pr.fixed)continue;pr.fixed=true;pr.fx=pr.x;pr.fy=pr.y;pr.sandboxFrozen=true;pr.vx=pr.vy=pr.av=0;n++;}log('Frozen '+n+' loose props','info');}
+    if(a==='unfreeze'){let n=0;for(const pr of PROPS){if(!pr.sandboxFrozen)continue;pr.fixed=false;pr.fx=pr.fy=null;pr.sandboxFrozen=false;pr.vx=pr.vy=pr.av=0;n++;}log('Unfroze '+n+' props','info');}
+    if(a==='clone'){const pr=grab&&grab.prop;if(!pr){log('Grab a physical prop first, then use Duplicate','info');return;}const cp=spawnProp(pr.type,clamp(pr.x+Math.max(18,pr.R*1.3),-ROOM+pr.R,ROOM-pr.R),pr.y-18,pr.vx||0,pr.vy||0,{sc:pr.sc||1});if(cp){log('Duplicated · '+(PROPDEF[pr.type]?.name||pr.type),'good');}}
+    if(a==='clear'){const n=PROPS.length;PROPS.length=0;if(grab&&grab.prop)grab=null;log('Cleared '+n+' loose props','info');}
+  });
+  m.hidden=false;$('scrim').hidden=false;const r=$('bMore').getBoundingClientRect(),mw=m.offsetWidth;m.style.maxHeight=Math.max(200,H-r.bottom-20)+'px';m.style.overflowY='auto';m.style.left=clamp(r.right-mw,8,W-mw-8)+'px';m.style.top=(r.bottom+6)+'px';m.style.bottom='auto';
+}
 function openMore(){const m=$('menu');if(!m.hidden&&m.dataset.cat==='more'){closeMenu();return;}closeMenu();m.dataset.cat='more';
-  m.innerHTML='<h4>Controls</h4>'+MORE.map(([id,n])=>{const b=$(id);if(!b)return'';const pr=b.getAttribute('aria-pressed');return`<button class="mi mm" data-b="${id}" ${pr!=null?`aria-pressed="${pr}"`:''}>${b.querySelector('svg')?`<span class="mic">${b.innerHTML}</span>`:'<span class="mic"></span>'}<b>${n}</b><em>${b.title||b.getAttribute('aria-label')||''}</em></button>`;}).join('');
-  m.querySelectorAll('.mi').forEach(x=>x.onclick=()=>{const id=x.dataset.b;closeMenu();$(id).click();});
-  m.hidden=false;$('scrim').hidden=false;const r=$('bMore').getBoundingClientRect(),mw=m.offsetWidth;m.style.maxHeight=(H-r.bottom-20)+'px';m.style.left=clamp(r.right-mw,8,W-mw-8)+'px';m.style.top=(r.bottom+6)+'px';m.style.bottom='auto';}
+  m.innerHTML='<h4>Controls</h4>'+MORE.map(([id,n])=>{const b=$(id);if(!b)return'';const pr=b.getAttribute('aria-pressed');return`<button class="mi mm" data-b="${id}" ${pr!=null?`aria-pressed="${pr}"`:''}>${b.querySelector('svg')?`<span class="mic">${b.innerHTML}</span>`:'<span class="mic"></span>'}<b>${n}</b><em>${b.title||b.getAttribute('aria-label')||''}</em></button>`;}).join('')+'<button class="mi" data-sandboxplus="1"><span class="mic">✦</span><b>Sandbox+ · Physics lab</b><em>Gravity presets, freeze, duplicate and clear props</em></button>';
+  m.querySelectorAll('[data-b]').forEach(x=>x.onclick=()=>{const id=x.dataset.b;closeMenu();$(id).click();});
+  m.querySelector('[data-sandboxplus]').onclick=sandboxPlus;
+  m.hidden=false;$('scrim').hidden=false;const r=$('bMore').getBoundingClientRect(),mw=m.offsetWidth;m.style.maxHeight=Math.max(200,H-r.bottom-20)+'px';m.style.overflowY='auto';m.style.left=clamp(r.right-mw,8,W-mw-8)+'px';m.style.top=(r.bottom+6)+'px';m.style.bottom='auto';}
 $('bMore').onclick=openMore;
 /* ---------- How to play ---------- */
 function openHelp(){closeMenu();const d=$('help');const T_=TOUCHUI;
@@ -10965,7 +11143,7 @@ cv.addEventListener('wheel',e=>{if(STORY.on){e.stopImmediatePropagation();e.prev
     panel.innerHTML=`<div class="v2head"><b>Sandbox V2</b><button id="v2Hide" type="button" aria-label="Hide spawner">−</button></div>
       <div class="v2hint">Story-mode controls are active. Tap/click a spawned NPC to control them; select the main subject to return.</div>
       <div class="v2row"><button id="v2Npc">＋ Spawn NPC</button><button id="v2Subject">Control main</button></div>
-      <label for="v2Weapon">Story weapon pickup</label><div class="v2row"><select id="v2Weapon"><option value="pistol">Pistol</option><option value="knife">Knife</option><option value="crowbar">Crowbar</option></select><button id="v2WeaponSpawn">Spawn pickup</button></div>
+      <label for="v2Weapon">Story weapon pickup</label><div class="v2row"><select id="v2Weapon"><option value="pistol">Pistol</option><option value="knife">Knife</option><option value="combatknife">Combat Knife (display prop)</option><option value="crowbar">Crowbar</option></select><button id="v2WeaponSpawn">Spawn pickup</button></div>
       <label for="v2Prop">Physical prop</label><div class="v2row"><select id="v2Prop"><option value="crate">Wooden crate</option><option value="lowbox">Steel crate</option><option value="cabinet">Filing cabinet</option><option value="table">Table</option><option value="chair">Chair</option><option value="gurney">Gurney</option><option value="stretcher">Stretcher</option><option value="slab">Long table</option><option value="beaker">Beaker</option><option value="pool">Pool</option></select><button id="v2PropSpawn">Spawn prop</button></div>
       <div class="v2row"><button id="v2Menu">Main menu</button><button id="v2Reset">Reset scene</button></div><div id="v2Status" aria-live="polite">Controlled: main character</div>`;
     story.appendChild(panel);
@@ -10998,7 +11176,7 @@ cv.addEventListener('wheel',e=>{if(STORY.on){e.stopImmediatePropagation();e.prev
     oldStoryStart();
     STORY.sandboxV2=true;STORY.controlled=null;STORY.done=false;STORY.fail=null;
     if(STORY.tur){STORY.tur.hp=0;STORY.tur.down=true;STORY.tur.mode='down';}
-    STORY.items=(STORY.items||[]).filter(it=>it.id==='cab'||it.id==='pistol'||it.id==='knife'||it.id==='crowbar');
+    STORY.items=(STORY.items||[]).filter(it=>it.id==='cab'||it.id==='pistol'||it.id==='knife'||it.id==='combatknife'||it.id==='crowbar');
     STORY.items.forEach(it=>{it.taken=false;});
     // Keep the story-mode pickups, animation, walking, aiming, firing and inventory, but remove the forced escape objective.
     document.body.classList.add('storyon','v2on');
@@ -11174,8 +11352,8 @@ cv.addEventListener('pointerdown',e=>{
   if(tool==='bandage')wrapCur=null;
   if(tool==='rope'&&view==='side'){if(MODE.rope==='pull'){let bd=Math.max(5,18/VS);for(const r of ROPES){const p=ropePos(r.a),q=ropePos(r.b);const d=dps(w.x,w.y,p.x,p.y,q.x,q.y).d;if(d<bd){bd=d;drag.pullR=r;}}}else drag.rope=ropeEnd(w,true);}
   if(TOOL[tool]&&TOOL[tool].power)powerDown(w);
-  if(tool==='grab'&&view==='side'){
-    const o=OBJ.find(o=>Math.hypot(o.x-w.x,o.y-w.y)<o.r+Math.max(4,14/VS)&&!o.att);const pr=o?null:propAt(w);
+  if((tool==='grab'||PROPS.some(pr=>pr.weaponKind&&!pr.dead&&Math.hypot(w.x-pr.x,w.y-pr.y)<pr.R+Math.max(14,28/VS)))&&view==='side'){
+    const o=OBJ.find(o=>Math.hypot(o.x-w.x,o.y-w.y)<o.r+Math.max(4,14/VS)&&!o.att);const nearbyGun=PROPS.filter(pr=>pr.weaponKind&&!pr.dead&&Math.hypot(w.x-pr.x,w.y-pr.y)<pr.R+Math.max(14,28/VS)).sort((a,b)=>{const da=Math.hypot(w.x-a.x,w.y-a.y)-a.R*0.35,db=Math.hypot(w.x-b.x,w.y-b.y)-b.R*0.35;return da-db;})[0];const pr=nearbyGun||(o?null:propAt(w));
     if(pr){const ca=Math.cos(-pr.ang),sa=Math.sin(-pr.ang);grab={prop:pr,lx:(w.x-pr.x)*ca-(w.y-pr.y)*sa,ly:(w.x-pr.x)*sa+(w.y-pr.y)*ca};}
     else if(o)grab={obj:o};else{
       const tol=Math.max(3,16/VS);let best=null,bestD=tol;
@@ -11283,7 +11461,7 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
   const panel=document.createElement('section');panel.id='npcSpawnPanel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','NPC spawner');
   panel.innerHTML=`<h3>NPC Spawner</h3><p>Spawn extra people into the current scene. Use the game’s built-in Grab tool to grab the main character or spawned NPCs. Characters collide in standing and ragdoll poses.</p>
     <label for="npcSpawnName">Name</label><input id="npcSpawnName" maxlength="24" value="Guard" />
-    <label for="npcSpawnWear">Clothing / outfit</label><select id="npcSpawnWear"><option value="under">Underwear</option><option value="casual" selected>Casual — T-shirt, jeans, boots</option><option value="lab">Lab worker — clothes + vest</option><option value="guard">Guard — clothes, vest, helmet</option><option value="armored">Armoured — plate, helmet, boots</option></select>
+    <label for="npcSpawnWear">Clothing / outfit</label><select id="npcSpawnWear"><option value="under">Underwear</option><option value="casual" selected>Casual — T-shirt, jeans, boots</option><option value="hoodie">Hoodie + jeans + boots</option><option value="jacket">Jacket + T-shirt + jeans</option><option value="winter">Winter layers — hoodie + jacket</option><option value="lab">Lab worker — clothes + vest</option><option value="guard">Guard — clothes, vest, helmet</option><option value="armored">Armoured — plate, helmet, boots</option></select>
     <div class="npcActions"><button class="primary" id="npcOne">Spawn 1</button><button class="primary" id="npcFive">Spawn 5</button><button id="npcClose">Close</button><button id="npcClear">Remove spawned NPCs</button></div>
     <div class="npcCount" id="npcSpawnCount">NPCs: 0</div>`;
   document.body.append(btn,panel);
@@ -11294,7 +11472,7 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
     if(amount<=0){const el=document.getElementById('npcSpawnCount');if(el)el.textContent='Limit reached (30 extra NPCs).';return;}
     const name=(document.getElementById('npcSpawnName').value||'Guard').trim().slice(0,24)||'Guard';
     const outfit=document.getElementById('npcSpawnWear').value;
-    const outfits={under:['under'],casual:['under','shirt','jeans','boots'],lab:['under','shirt','jeans','boots','vest'],guard:['under','shirt','jeans','boots','vest','helmet'],armored:['under','boots','plate','helmet']};
+    const outfits={under:['under'],casual:['under','shirt','jeans','boots'],hoodie:['under','hoodie','jeans','boots'],jacket:['under','shirt','jacket','jeans','boots'],winter:['under','shirt','hoodie','jacket','jeans','boots'],lab:['under','shirt','jeans','boots','vest'],guard:['under','shirt','jeans','boots','vest','helmet'],armored:['under','boots','plate','helmet']};
     const wear=outfits[outfit]||outfits.casual;
     const base=(typeof storyX==='function'?storyX():((P[SEG.chest.a].x+P[SEG.abd.b].x)/2));
     for(let i=0;i<amount;i++){
@@ -11321,79 +11499,30 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
 })();
 
 
-// ===== Melon-style physical gun spawner =====
-(function installGrabbableGunSpawner(){
-  const css=document.createElement('style');
-  css.textContent=`
-    #gunSpawnBtn{position:fixed;right:14px;bottom:145px;z-index:31;padding:10px 14px;border:1px solid #8ab4f8;border-radius:10px;background:#17202b;color:#f4f7fb;font:700 12px system-ui;letter-spacing:.04em;box-shadow:0 6px 20px #0005;cursor:pointer}
-    #gunSpawnPanel{position:fixed;right:14px;bottom:190px;z-index:31;width:min(290px,calc(100vw - 28px));padding:14px;border:1px solid #64748b;border-radius:12px;background:#111923;color:#f4f7fb;box-shadow:0 12px 32px #0008;font:13px system-ui}
-    #gunSpawnPanel[hidden]{display:none}
-    #gunSpawnPanel h3{margin:0 0 6px;font-size:15px}
-    #gunSpawnPanel p{margin:0 0 10px;color:#c6d0dd;line-height:1.4}
-    #gunSpawnPanel .gunRow{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
-    #gunSpawnPanel button{border:1px solid #526274;border-radius:8px;padding:8px 9px;background:#243142;color:#fff;font-weight:650;cursor:pointer}
-    #gunSpawnPanel button:hover{background:#34485f}
-    #gunSpawnPanel .gunFire{background:#805a1c;border-color:#e9c46a}
-    #gunSpawnPanel .gunStatus{font-size:11px;color:#aebccc;margin-top:8px}
-  `;
-  document.head.appendChild(css);
-  const btn=document.createElement('button');
-  btn.id='gunSpawnBtn';btn.type='button';btn.textContent='＋ GUN SPAWNER';
-  const panel=document.createElement('section');
-  panel.id='gunSpawnPanel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Gun spawner');
-  panel.innerHTML=`<h3>Physical Guns</h3>
-    <p>Spawn a gun, select the normal Grab tool, then drag the gun to pick it up and move it. Hold a gun and press <b>F</b> to fire or <b>R</b> to flip it 180°.</p>
-    <div class="gunRow"><button data-gun="gunPistol">Pistol</button><button data-gun="gunRifle">Rifle</button><button data-gun="gunShotgun">Shotgun</button></div>
-    <div class="gunRow"><button class="gunFire" id="fireHeldGun">Fire Held Gun</button><button id="flipHeldGun">Flip 180°</button><button id="closeGunPanel">Close</button></div>
-    <div class="gunStatus" id="gunSpawnStatus">Guns use the game's existing projectile and damage simulation.</div>`;
-  document.body.append(btn,panel);
-
+// ===== Held-gun keyboard controls (spawner UI removed) =====
+(function installHeldGunControls(){
   function heldGun(){
     return (typeof grab!=='undefined'&&grab&&grab.prop&&grab.prop.weaponKind)?grab.prop:null;
   }
-  function say(t){const e=panel.querySelector('#gunSpawnStatus');if(e)e.textContent=t;}
-  function spawnGun(type){
-    try{
-      const mainX=(typeof P!=='undefined'&&typeof SEG!=='undefined'&&P[SEG.chest.a])?P[SEG.chest.a].x:0;
-      const x=clamp(mainX+95,-ROOM+45,ROOM-45);
-      const pr=spawnProp(type,x,-32,0,0,{});
-      if(pr){say(pr.weaponKind.toUpperCase()+' spawned · select Grab and drag it to pick it up.');if(typeof emitLog==='function')emitLog(pr.weaponKind+' spawned · use Grab to pick it up','good');}
-      else say('No room there — move the character or try spawning again.');
-    }catch(e){say('Could not spawn a gun in this scene.');}
-  }
   function fireHeld(){
     const pr=heldGun();
-    if(!pr){say('Grab a spawned gun first.');return;}
+    if(!pr)return;
     const a=pr.ang||0;
     const muzzleX=pr.weaponKind==='pistol'?13:31, muzzleY=-2;
     const ca=Math.cos(a),sa=Math.sin(a);
     const x=pr.x+(muzzleX-pr.ox)*ca-(muzzleY-pr.oy)*sa;
     const y=pr.y+(muzzleX-pr.ox)*sa+(muzzleY-pr.oy)*ca;
-    try{fire(pr.weaponKind,x,y,Math.cos(a),Math.sin(a));say(pr.weaponKind.toUpperCase()+' fired.');}
-    catch(e){say('Could not fire this gun right now.');}
+    try{fire(pr.weaponKind,x,y,Math.cos(a),Math.sin(a));}catch(e){}
   }
-  btn.addEventListener('click',()=>{panel.hidden=!panel.hidden;});
-  panel.querySelectorAll('[data-gun]').forEach(b=>b.addEventListener('click',()=>spawnGun(b.dataset.gun)));
-  panel.querySelector('#fireHeldGun').addEventListener('click',fireHeld);
-  panel.querySelector('#flipHeldGun').addEventListener('click',()=>{
-    const pr=heldGun();if(!pr){say('Grab a spawned gun first.');return;}
-    pr.ang+=Math.PI;say('Gun flipped around.');
-  });
-  panel.querySelector('#closeGunPanel').addEventListener('click',()=>{panel.hidden=true;});
   window.addEventListener('keydown',e=>{
     if(e.repeat)return;
     if(e.key==='f'||e.key==='F'){
       if(heldGun()){e.preventDefault();fireHeld();}
     }else if(e.key==='r'||e.key==='R'){
       const pr=heldGun();
-      if(pr){
-        e.preventDefault();
-        pr.ang=(pr.ang||0)+Math.PI;
-        say('Gun flipped 180° (R).');
-      }
+      if(pr){e.preventDefault();pr.ang=(pr.ang||0)+Math.PI;}
     }
   });
-  if(typeof window.__lab==='object')window.__lab.spawnGun=spawnGun;
 })();
 
 </script>
@@ -11453,7 +11582,10 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
   const brain=org&&org.brain, brainHP=brain&&Number.isFinite(brain.hp)?brain.hp:100, stem=brain&&Number.isFinite(brain.stem)?brain.stem:100;
   if(Number(v.consc)<.35&&(brainHP<20||stem<92))return ['In a coma','warn'];
   if(Number(v.ko)>0||Number(v.consc)<.35)return ['Knocked Out','warn'];
-  if(Number(v.painEff??v.pain)>30)return ['In Pain','warn'];
+  const pain=Number(v.painEff??v.pain)||0;
+  if(pain>=70)return ['Severe Pain','warn'];
+  if(pain>=35)return ['Heavily in Pain','warn'];
+  if(pain>=1)return ['In Pain','warn'];
   if(Number(v.blood)<3000||Number(v.spo2)<85||Number(v.hr)<35||Number(v.hr)>150)return ['Unstable','warn'];
   return ['Stable',''];
  }
@@ -11545,6 +11677,184 @@ window.__lab={fire,frontFire,explode,stab,bladeStroke,spawnObj,inject,setView,se
   window.__traumaLabGrabUpgrade={get active(){return !!activeGrab;},release(){activeGrab=null;contactKey='';}};
 })();
 </script>
+
+<!-- Fight Lab: focused, non-graphic sandbox combat controls -->
+<style>
+#tlFightBtn{position:fixed;right:14px;bottom:136px;z-index:100201;border:1px solid #ef8354;border-radius:8px;background:#171b20ed;color:#ffb08a;padding:8px 11px;font:700 11px system-ui;letter-spacing:.08em;box-shadow:0 5px 18px #0008}
+#tlFightPanel{position:fixed;right:14px;bottom:180px;z-index:100202;width:min(300px,calc(100vw - 28px));max-height:68vh;overflow:auto;box-sizing:border-box;padding:12px;border:1px solid #704633;border-radius:12px;background:#151a20f5;color:#eaf0f5;font:12px/1.4 system-ui;box-shadow:0 18px 42px #0009}
+#tlFightPanel[hidden]{display:none!important}#tlFightPanel h3{margin:0 0 4px;color:#ffb08a;font-size:15px}#tlFightPanel p{margin:0 0 8px;color:#aeb8c2;font-size:11px}
+#tlFightPanel select{width:100%;box-sizing:border-box;padding:8px;background:#0d1217;color:#edf2f7;border:1px solid #46515b;border-radius:6px;margin:3px 0 8px}
+#tlFightPanel .fightGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#tlFightPanel button{padding:8px 5px;background:#252d35;color:#edf2f7;border:1px solid #46515b;border-radius:6px;font-weight:650;cursor:pointer}
+#tlFightPanel button.hot{border-color:#b75e3a;color:#ffb08a}#tlFightPanel .fightMeter{height:7px;background:#303840;border-radius:5px;overflow:hidden;margin:4px 0 8px}#tlFightPanel .fightMeter i{display:block;height:100%;width:100%;background:#6fd49b;transition:width .12s}
+#tlFightStatus{font-size:11px;color:#c4ced7;min-height:28px;margin-top:8px}
+@media(max-width:520px){#tlFightBtn{right:8px;bottom:128px}#tlFightPanel{right:8px;bottom:170px}}
+</style>
+<script>
+(()=>{
+ if(document.getElementById('tlFightBtn'))return;
+ const btn=document.createElement('button');btn.id='tlFightBtn';btn.type='button';btn.textContent='⚔ FIGHT LAB';
+ const panel=document.createElement('section');panel.id='tlFightPanel';panel.hidden=true;panel.setAttribute('role','dialog');panel.setAttribute('aria-label','Fight Lab');
+ panel.innerHTML=`<h3>Fight Lab</h3><p>Test punches, kicks, blocks and knockback on spawned NPCs. Combat is controlled by the buttons below.</p>
+ <label for="tlFightTarget">Target NPC</label><select id="tlFightTarget"><option value="">Spawn an NPC first</option></select>
+ <div>Stamina <span id="tlFightStaminaText">100%</span></div><div class="fightMeter"><i id="tlFightStamina"></i></div>
+ <div class="fightGrid"><button class="hot" data-move="punch">Punch</button><button class="hot" data-move="kick">Kick</button><button class="hot" data-move="heavy">Heavy hit</button><button data-move="combo">3-hit combo</button><button class="hot" data-move="takedown">Takedown</button><button data-move="block">Toggle target block</button><button data-move="dodge">Dodge target</button><button data-move="recover">Recover stamina</button><button data-move="refresh">Refresh targets</button><button class="hot" id="tlAutoFight">Start auto-fight</button></div>
+ <div id="tlFightStatus" role="status">Spawn NPCs, choose a target, then select a move.</div>`;
+ document.body.append(btn,panel);
+ const $=id=>document.getElementById(id);let stamina=100,lastAct=0,blocked=new WeakSet(),autoFight=false,autoNext=0;
+ const say=s=>{$('tlFightStatus').textContent=s;};
+ function bodies(){
+  const out=[];
+  // The main/player character is BODY0; spawned NPCs live in BODIES. body state is
+  // temporarily moved into the globals by withBody(), so don't require a menu flag.
+  if(typeof BODY0!=='undefined')out.push(BODY0);
+  if(typeof BODIES!=='undefined'&&Array.isArray(BODIES))for(const b of BODIES){
+   const st=b===BCUR?null:b&&b.st;
+   if(b&&((st&&st.V)||b===BCUR))out.push(b);
+  }
+  return out.filter(b=>{try{return b===BODY0 ? !!(V||b.st&&b.st.V) : !!(b.st&&b.st.V||b===BCUR&&V);}catch(_){return false;}});
+ }
+ function refresh(){
+  const sel=$('tlFightTarget'),old=sel.value,bs=bodies();
+  sel.innerHTML=bs.length?bs.map((b,i)=>`<option value="${b===BODY0?0:b.id}">${String(b===BODY0?'Main NPC':b.name||'NPC '+i).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}</option>`).join(''):'<option value="">No active NPCs found</option>';
+  if(bs.some(b=>String(b.id)===old))sel.value=old;
+ }
+ function target(){return bodies().find(b=>String(b===BODY0?0:b.id)===$('tlFightTarget').value)||null;}
+ function meter(){ $('tlFightStamina').style.width=stamina+'%';$('tlFightStaminaText').textContent=Math.round(stamina)+'%';$('tlFightStamina').style.background=stamina<25?'#ef7777':stamina<55?'#eab968':'#6fd49b'; }
+ function animateFightMove(b,move){
+  // Animate from a snapshot so offsets do not accumulate every frame. Keep joint
+  // travel bounded: the old kick pulled thigh, shin and foot toward unrelated
+  // world coordinates, stretching the leg and making the foot appear broken.
+  const duration=move==='takedown'?2200:move==='kick'?420:340, started=performance.now();
+  const run=()=>{
+   const elapsed=performance.now()-started;
+   const t=Math.min(1,elapsed/duration);
+   const reach=Math.sin(Math.PI*t);
+   try{withBody(b,()=>{
+    const f=typeof FACE==='number'?FACE:1;
+    const snap=q=>q?({q,x:q.x,y:q.y}):null;
+    const point=(seg,end)=>seg&&seg.connected!==false&&P[seg[end]]?snap(P[seg[end]]):null;
+    const movePoint=(base,dx,dy,k,max)=>{if(!base||!base.q||base.q.gone)return;pullPt(base.q,base.x+f*dx*reach,base.y+dy*reach,k,max);};
+    if(move==='takedown'){
+      // Flying tackle pose: rotate the attacker's body into a horizontal dive,
+      // with both arms spread, then restore the pose while the target is driven down.
+      const all=P.filter(q=>q&&!q.gone);if(!all.length)return;
+      const cx=all.reduce((n,q)=>n+q.x,0)/all.length,cy=all.reduce((n,q)=>n+q.y,0)/all.length;
+      const chest=point(SEG.chest,'b');
+      const armA=point(SEG.nearUpperArm||SEG.farUpperArm,'b');
+      const armB=point(SEG.farUpperArm||SEG.nearUpperArm,'b');
+      // Slower, controlled dive: keep the launcher's ragdoll near its original
+      // pose so the animation doesn't fling the attacker into the floor.
+      const phase=t<.62?Math.sin((Math.PI/2)*Math.min(1,t/.62)):Math.cos((Math.PI/2)*Math.min(1,(t-.62)/.38))*.22;
+      const angle=(t<.62?1:-.12)*Math.PI/2*phase;
+      // Lift the attacker into a higher, slower arc, with much smaller per-frame
+      // corrections so the ragdoll doesn't violently snap or injure itself.
+      for(const q of all){const ox=q.x-cx,oy=q.y-cy;const rx=ox*Math.cos(angle)-oy*Math.sin(angle),ry=ox*Math.sin(angle)+oy*Math.cos(angle);pullPt(q,cx+rx+f*phase*18,cy+ry-phase*19,.045,1.1);}
+      movePoint(armA,-16,-14,.12,3);movePoint(armB,16,-14,.12,3);
+    }else if(move==='kick'){
+      const thigh=point(SEG.nearThigh||SEG.farThigh,'b');
+      const shin=point(SEG.nearShin||SEG.farShin,'b');
+      const foot=point(SEG.nearFoot||SEG.farFoot,'b');
+      // Hip moves very little; knee and foot extend progressively while staying
+      // close to their original joint lengths.
+      movePoint(thigh,4,-2,.20,2.5);
+      movePoint(shin,12,-7,.26,4.5);
+      movePoint(foot,24,-10,.32,6);
+    }else{
+      const upper=point(SEG.nearUpperArm||SEG.farUpperArm,'b');
+      const fore=point(SEG.nearForearm||SEG.farForearm,'b');
+      const hand=point(SEG.nearHand||SEG.farHand,'b');
+      const heavy=move==='heavy';
+      // Extend the fist farther forward, with progressively smaller motion at
+      // the shoulder and larger motion at the wrist; never drag the head/chest.
+      movePoint(upper,heavy?13:10,-2,.28,4);
+      movePoint(fore,heavy?38:31,-3,.38,7);
+      movePoint(hand,heavy?66:54,-4,.46,11);
+      if(V&&V.ACT){V.ACT.fist={near:true,far:true};}
+    }
+   });}catch(_){clearInterval(timer);return;}
+   if(t>=1)clearInterval(timer);
+  };
+  const timer=setInterval(run,25);run();
+ }
+ function impact(move){
+  const b=target();if(!b){say('Choose an active spawned NPC first.');return;}
+  const costs={punch:13,kick:18,heavy:29,combo:36,takedown:42};const cost=costs[move]||0;
+  if(stamina<cost){say('Too tired — recover stamina before the next move.');return;}
+  if(performance.now()-lastAct<220){say('Wait for the move to finish.');return;}lastAct=performance.now();stamina=Math.max(0,stamina-cost);meter();
+  const settings={punch:{energy:18,focus:0.85,knock:55},kick:{energy:28,focus:0.9,knock:95},heavy:{energy:48,focus:1.0,knock:160},combo:{energy:16,focus:0.8,knock:65},takedown:{energy:32,focus:0.88,knock:110}};
+  const cfg=settings[move]||settings.punch;
+  if(move==='takedown'){try{if(typeof BODY0!=='undefined'&&BODY0)animateFightMove(BODY0,'takedown');}catch(_){} }else animateFightMove(b,move);
+  try{
+   const attackerX=(P[SEG.chest.a].x+P[SEG.abd.b].x)/2;
+   withBody(b,()=>{
+    const ss=segs.filter(s=>s&&!s.gone&&s.connected!==false);
+    const priority=move==='kick'?['thigh','shin','foot','abd']:['hand','farm','uarm','chest','abd'];
+    let sg=null;for(const k of priority){sg=ss.find(s=>s.kind===k);if(sg)break;}if(!sg)sg=ss.find(s=>!s.gone);
+    if(!sg)throw new Error('No available body segment');
+    const A=P[sg.a],B=P[sg.b];if(!A||!B)throw new Error('Missing body points');
+    const x=(A.x+B.x)/2,y=(A.y+B.y)/2,L=toLocal(sg,x,y);
+    const guarded=blocked.has(b),energy=cfg.energy*(guarded?0.38:1);
+    blunt(sg,L.s,L.w,energy,move==='kick'?'Sandbox kick':move==='heavy'?'Heavy sandbox hit':'Sandbox punch',cfg.focus,false);
+    if(move==='combo'){for(const kind of ['chest','abd']){const extra=ss.find(q=>q.kind===kind&&q!==sg);if(!extra)continue;const ea=P[extra.a],eb=P[extra.b];if(!ea||!eb)continue;const ex=(ea.x+eb.x)/2,ey=(ea.y+eb.y)/2,el=toLocal(extra,ex,ey);blunt(extra,el.s,el.w,energy*0.72,'Sandbox combo',0.9,false);}}
+    const dir=attackerX>x?-1:1;
+    if(move==='takedown'){
+      // Controlled takedown: give the target a firm but survivable shove and
+      // downward tumble. The modest Verlet impulse avoids launching either NPC
+      // at extreme speed while still making the target fall onto the floor.
+      for(const p of P){if(!p||p.gone)continue;p.px=p.x-dir*5;p.py=p.y+5;}
+      V.pain=Math.min(100,(Number(V.pain)||0)+8);
+      if(typeof V.ko==='number')V.ko=Math.max(V.ko,10);
+    }else{
+      const impulse=(move==='heavy'?18:move==='kick'?12:move==='combo'?8:7)*(guarded?0.35:1);
+      for(const idx of [sg.a,sg.b]){const p=P[idx];if(!p||p.gone)continue;p.px=p.x-dir*impulse;}
+      V.pain=Math.min(100,(Number(V.pain)||0)+(move==='heavy'?13:move==='kick'?8:5));
+      if(move==='combo')V.pain=Math.min(100,(Number(V.pain)||0)+4);
+    }
+   });
+   say((b.name||'NPC')+(blocked.has(b)?' blocked some of the impact.':' was hit with a '+(move==='heavy'?'heavy hit':move==='combo'?'3-hit combo':move==='takedown'?'flying takedown':move)+'.'));
+  }catch(e){say('Could not complete move: '+e.message);}
+ }
+ btn.addEventListener('click',()=>{panel.hidden=!panel.hidden;refresh();});
+ panel.querySelectorAll('[data-move]').forEach(b=>b.addEventListener('click',()=>{
+  const m=b.dataset.move;if(m==='refresh'){refresh();say('Target list refreshed.');return;}
+  if(m==='recover'){stamina=Math.min(100,stamina+35);meter();say('Recovered stamina.');return;}
+  const t=target();if(!t){say('Spawn and select an NPC first.');return;}
+  if(m==='block'){if(blocked.has(t)){blocked.delete(t);say((t.name||'NPC')+' lowered their guard.');}else{blocked.add(t);say((t.name||'NPC')+' is guarding; your next hits are reduced.');}return;}
+  if(m==='dodge'){
+   if(stamina<12){say('Too tired to dodge.');return;}stamina-=12;meter();
+   try{withBody(t,()=>{const ps=P.filter(p=>!p.gone);const cx=ps.reduce((s,p)=>s+p.x,0)/Math.max(1,ps.length);const dir=Math.random()<.5?-1:1;for(const p of ps){p.px=p.x-dir*520/360;p.py=p.y-180/360;} });say((t.name||'NPC')+' dodged sideways.');}catch(_){say('Dodge failed.');}return;
+  }
+  if(m==='combo'){impact('combo');return;}impact(m);
+ }));
+ $('tlAutoFight').addEventListener('click',()=>{autoFight=!autoFight;$('tlAutoFight').textContent=autoFight?'Stop auto-fight':'Start auto-fight';$('tlAutoFight').classList.toggle('hot',autoFight);say(autoFight?'Auto-fight enabled for the selected target.':'Auto-fight stopped.');});
+ // Refill stamina, refresh target choices and drive auto-fight at a readable pace.
+ setInterval(()=>{if(stamina<100){stamina=Math.min(100,stamina+4);meter();}if(!panel.hidden)refresh();if(autoFight&&!panel.hidden&&performance.now()>=autoNext){autoNext=performance.now()+950;const t=target();if(!t){autoFight=false;$('tlAutoFight').textContent='Start auto-fight';say('Auto-fight stopped: select an active NPC.');return;}if(stamina<24){say('Auto-fight paused briefly to recover stamina.');return;}impact(Math.random()<0.2?'kick':Math.random()<0.18?'heavy':'punch');}},250);
+ meter();window.__traumaFightLab={refresh,attack:impact,get stamina(){return stamina;}};
+})();
+</script>
+
+
+<!-- Always-visible attack controls stacked along the left edge -->
+<style>
+#tlSideFightControls{position:fixed;inset:0;pointer-events:none;z-index:100250;font-family:system-ui,sans-serif}
+#tlSideFightControls .tlAttackStack{position:absolute;left:10px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:8px;pointer-events:auto}
+#tlSideFightControls button{min-width:112px;min-height:48px;padding:9px 10px;border:2px solid #ff9b6b;border-radius:12px;background:#171b20ed;color:#fff;font-weight:800;font-size:12px;letter-spacing:.03em;box-shadow:0 4px 18px #0008;touch-action:manipulation;cursor:pointer}
+#tlSideFightControls #tlSideKick{border-color:#79c9ff}#tlSideFightControls #tlSideHeavy{border-color:#ff6c6c}#tlSideFightControls #tlSideCombo{border-color:#c4a2ff}#tlSideFightControls #tlSideTakedown{border-color:#f7d56b;background:#302816f2;color:#ffe8a1}
+#tlSideFightControls button:active{transform:scale(.96);filter:brightness(1.25)}
+@media(max-width:520px){#tlSideFightControls .tlAttackStack{left:5px;gap:6px}#tlSideFightControls button{min-width:88px;min-height:42px;padding:7px 6px;font-size:10px;border-radius:10px}}
+</style>
+<script>
+(()=>{
+ if(document.getElementById('tlSideFightControls'))return;
+ const wrap=document.createElement('div');wrap.id='tlSideFightControls';
+ wrap.innerHTML='<div class="tlAttackStack"><button id="tlSidePunch" type="button" aria-label="Punch selected NPC">👊 PUNCH</button><button id="tlSideKick" type="button" aria-label="Kick selected NPC">🦵 KICK</button><button id="tlSideHeavy" type="button" aria-label="Heavy hit selected NPC">💥 HEAVY HIT</button><button id="tlSideCombo" type="button" aria-label="Three hit combo on selected NPC">⚡ 3-HIT COMBO</button><button id="tlSideTakedown" type="button" aria-label="Flying takedown on selected NPC">🤼 TAKEDOWN</button></div>';
+ document.body.appendChild(wrap);
+ const call=move=>{if(window.__traumaFightLab&&typeof window.__traumaFightLab.attack==='function'){window.__traumaFightLab.attack(move);return;}const panel=document.getElementById('tlFightPanel');if(panel){panel.hidden=false;const b=panel.querySelector('[data-move="'+move+'"]');if(b)b.click();}};
+ for(const [id,move] of [['tlSidePunch','punch'],['tlSideKick','kick'],['tlSideHeavy','heavy'],['tlSideCombo','combo'],['tlSideTakedown','takedown']])document.getElementById(id).addEventListener('click',()=>call(move));
+})();
+</script>
+
 </body>
 </html>
 
